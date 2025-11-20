@@ -188,9 +188,25 @@ def importar_vendas_ml(caminho_arquivo, engine: Engine):
                 receita_total = 0.0
 
             preco_medio_venda = receita_total / unidades if unidades > 0 else 0.0
-            custo_total = custo_unitario * unidades
-            margem_contribuicao = receita_total - custo_total
-            numero_venda_ml = str(row.get("N.º de venda"))
+custo_total = custo_unitario * unidades
+
+# ----- Comissão Mercado Livre direto da planilha -----
+tarifa = row.get("Tarifa de venda e impostos (BRL)")
+
+try:
+    comissao_ml = float(tarifa) if tarifa == tarifa else 0.0
+except Exception:
+    comissao_ml = 0.0
+
+# A planilha traz NEGATIVO, então deixamos positivo
+if comissao_ml < 0:
+    comissao_ml = -comissao_ml
+
+# Margem já descontando comissão ML
+margem_contribuicao = receita_total - custo_total - comissao_ml
+# -----------------------------------------------------
+
+numero_venda_ml = str(row.get("N.º de venda"))
 
             conn.execute(
                 insert(vendas).values(
