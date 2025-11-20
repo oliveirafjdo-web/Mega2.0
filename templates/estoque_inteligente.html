@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Estoque Inteligente</h1>
+
+<div class="filter-card">
+    <div class="filter-card-header">
+        Monitoramento Automático de Reposição
+    </div>
+    <p>
+        Aqui você vê a necessidade real de compra conforme o ritmo de vendas dos últimos 30 dias.
+        O sistema calcula automaticamente:
+        <strong>média diária, média mensal, dias restantes, previsão de ruptura e sugestão de compra.</strong>
+    </p>
+</div>
+
+<table>
+    <thead>
+        <tr>
+            <th>Produto</th>
+            <th>Vendas 30d</th>
+            <th>Média diária</th>
+            <th>Média mensal</th>
+            <th>Estoque atual</th>
+            <th>Dias restantes</th>
+            <th>Ruptura prevista</th>
+            <th>Comprar</th>
+            <th>Status</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for p in produtos %}
+        <tr>
+            <td>{{ p.nome }}</td>
+            <td>{{ p.vendas_30d }}</td>
+            <td>{{ "%.2f"|format(p.media_diaria) }}</td>
+            <td>{{ "%.2f"|format(p.media_mensal) }}</td>
+            <td>{{ p.estoque_atual }}</td>
+
+            <td>
+                {% if p.dias_restantes == '∞' %}
+                    ∞
+                {% else %}
+                    {{ p.dias_restantes }}
+                {% endif %}
+            </td>
+
+            <td>
+                {% if p.data_ruptura %}
+                    {{ p.data_ruptura }}
+                {% else %}
+                    —
+                {% endif %}
+            </td>
+
+            <td>
+                {% if p.sugestao_compra > 0 %}
+                    {{ p.sugestao_compra }}
+                {% else %}
+                    —
+                {% endif %}
+            </td>
+
+            <td>
+                {% if p.status == "ok" %}
+                    <span style="color: green; font-weight: bold;">OK</span>
+                {% elif p.status == "atencao" %}
+                    <span style="color: orange; font-weight: bold;">Atenção</span>
+                {% else %}
+                    <span style="color: red; font-weight: bold;">Comprar Agora</span>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}
