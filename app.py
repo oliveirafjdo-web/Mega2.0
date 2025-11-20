@@ -16,7 +16,7 @@ import pandas as pd
 # --------------------------------------------------------------------
 # Configuração de banco: Postgres em produção, SQLite em desenvolvimento
 # --------------------------------------------------------------------
-DATABASE_URL = os.environ.get("DATABASE_URL", "sqlite:///metrifiy.db")
+DATABASE_URL = os.environ.get("DATABASE_URL", "sqlite:////tmp/metrifiy.db")
 UPLOAD_FOLDER = os.environ.get("UPLOAD_FOLDER", "uploads")
 
 app = Flask(__name__)
@@ -834,6 +834,7 @@ def relatorio_lucro():
     )
 
 
+init_db()
+
 if __name__ == "__main__":
-    init_db()
     app.run(debug=True, host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
