@@ -2,15 +2,30 @@
 {% block content %}
 <h1>Vendas</h1>
 
-<h3>Filtro por data</h3>
-<form method="get" style="margin-bottom: 16px;">
-  <label>Data início</label>
-  <input type="date" name="data_inicio" value="{{ data_inicio }}">
-  <label>Data fim</label>
-  <input type="date" name="data_fim" value="{{ data_fim }}">
-  <button type="submit" class="btn btn-primary">Filtrar</button>
-  <a href="{{ url_for('lista_vendas') }}" class="btn btn-link">Limpar</a>
-</form>
+<div class="filter-card">
+  <div class="filter-card-header">Filtro por data</div>
+
+  <form method="get">
+    <div class="filter-row">
+
+      <div class="filter-field">
+        <label>Data início</label>
+        <input type="date" name="data_inicio" value="{{ data_inicio }}">
+      </div>
+
+      <div class="filter-field">
+        <label>Data fim</label>
+        <input type="date" name="data_fim" value="{{ data_fim }}">
+      </div>
+
+      <div class="filter-actions">
+        <button type="submit" class="btn btn-primary">Filtrar</button>
+        <a href="{{ url_for('lista_vendas') }}" class="btn btn-link">Limpar</a>
+      </div>
+
+    </div>
+  </form>
+</div>
 
 <h3>Registrar venda manual</h3>
 <form method="POST" action="{{ url_for('criar_venda_manual') }}" class="filters">
