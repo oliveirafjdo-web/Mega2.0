@@ -188,10 +188,26 @@ def importar_vendas_ml(caminho_arquivo, engine: Engine):
                 receita_total = 0.0
 
             preco_medio_venda = receita_total / unidades if unidades > 0 else 0.0
-            custo_total = custo_unitario * unidades
-            margem_contribuicao = receita_total - custo_total
-            numero_venda_ml = str(row.get("N.º de venda"))
+custo_total = custo_unitario * unidades
 
+# ----- NOVO: comissão do ML a partir da planilha -----
+# Coluna: "Tarifa de venda e impostos (BRL)"
+tarifa = row.get("Tarifa de venda e impostos (BRL)")
+
+try:
+    comissao_ml = float(tarifa) if tarifa == tarifa else 0.0  # ignora NaN
+except Exception:
+    comissao_ml = 0.0
+
+# Normalmente vem NEGATIVO na planilha, então transformamos em valor positivo de custo
+if comissao_ml < 0:
+    comissao_ml = -comissao_ml
+
+# Margem de contribuição já descontando a comissão do ML
+margem_contribuicao = receita_total - custo_total - comissao_ml
+# -------------------------------------------------------
+
+numero_venda_ml = str(row.get("N.º de venda"))
             conn.execute(
                 insert(vendas).values(
                     produto_id=produto_id,
