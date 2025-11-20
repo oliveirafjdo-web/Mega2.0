@@ -1,3 +1,8 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Vendas</h1>
+
+<h3>Filtro por data</h3>
 <form method="get" style="margin-bottom: 16px;">
   <label>Data início</label>
   <input type="date" name="data_inicio" value="{{ data_inicio }}">
@@ -5,24 +10,6 @@
   <input type="date" name="data_fim" value="{{ data_fim }}">
   <button type="submit" class="btn btn-primary">Filtrar</button>
   <a href="{{ url_for('lista_vendas') }}" class="btn btn-link">Limpar</a>
-</form>
-{% extends "base.html" %}
-{% block content %}
-<h1>Vendas</h1>
-
-<h3>Filtro por data</h3>
-<form method="GET" class="filters">
-  <div>
-    <label>Data inicial</label>
-    <input type="date" name="data_ini" value="{{ data_ini or '' }}">
-  </div>
-  <div>
-    <label>Data final</label>
-    <input type="date" name="data_fim" value="{{ data_fim or '' }}">
-  </div>
-  <div>
-    <button class="btn btn-primary" type="submit">Filtrar</button>
-  </div>
 </form>
 
 <h3>Registrar venda manual</h3>
