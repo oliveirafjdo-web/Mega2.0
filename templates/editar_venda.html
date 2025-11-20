@@ -1,1 +1,21 @@
-<!-- Template editar_venda.html gerado. Preencha com conteúdo desejado. -->
+{% extends "base.html" %}
+{% block content %}
+<h1>Editar Venda #{{ venda.id }}</h1>
+
+<form method="POST">
+  <label>Produto</label>
+  <input type="text" value="{{ venda.nome }}" disabled>
+
+  <label>Quantidade</label>
+  <input type="number" name="quantidade" value="{{ venda.quantidade }}" min="1" required>
+
+  <label>Preço venda unitário (R$)</label>
+  <input type="number" step="0.01" name="preco_venda_unitario" value="{{ venda.preco_venda_unitario }}" required>
+
+  <label>Custo total (R$)</label>
+  <input type="number" step="0.01" name="custo_total" value="{{ venda.custo_total }}" required>
+
+  <button type="submit" class="btn btn-success">Salvar</button>
+  <a href="{{ url_for('lista_vendas') }}" class="btn btn-danger">Cancelar</a>
+</form>
+{% endblock %}

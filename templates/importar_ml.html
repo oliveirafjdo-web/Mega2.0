@@ -1,1 +1,15 @@
-<!-- Template importar_ml.html gerado. Preencha com conteúdo desejado. -->
+{% extends "base.html" %}
+{% block content %}
+<h1>Importar Vendas do Mercado Livre</h1>
+
+<form method="POST" enctype="multipart/form-data">
+  <label>Arquivo Excel da planilha oficial (Vendas BR)</label>
+  <input type="file" name="arquivo" required>
+  <button type="submit" class="btn btn-primary">Importar</button>
+</form>
+
+<p class="small">
+  A planilha deve conter a aba "Vendas BR" com as colunas padrão do Mercado Livre
+  (incluindo "N.º de venda", "SKU", "Título do anúncio", "Unidades", "Total (BRL)", etc.).
+</p>
+{% endblock %}

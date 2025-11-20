@@ -1,1 +1,29 @@
-<!-- Template produto_form.html gerado. Preencha com conteúdo desejado. -->
+{% extends "base.html" %}
+{% block content %}
+<h1>{{ 'Editar Produto' if produto else 'Novo Produto' }}</h1>
+
+<form method="POST">
+  <label>Nome</label>
+  <input type="text" name="nome" required value="{{ produto.nome if produto else '' }}">
+
+  <label>SKU</label>
+  <input type="text" name="sku" value="{{ produto.sku if produto else '' }}">
+
+  <label>Custo unitário (R$)</label>
+  <input type="number" step="0.01" name="custo_unitario" required value="{{ produto.custo_unitario if produto else '0.00' }}">
+
+  <label>Preço de venda sugerido (R$)</label>
+  <input type="number" step="0.01" name="preco_venda_sugerido" required value="{{ produto.preco_venda_sugerido if produto else '0.00' }}">
+
+  {% if produto %}
+    <label>Estoque atual</label>
+    <input type="number" name="estoque_atual" required value="{{ produto.estoque_atual }}">
+  {% else %}
+    <label>Estoque inicial</label>
+    <input type="number" name="estoque_inicial" required value="0">
+  {% endif %}
+
+  <button type="submit" class="btn btn-success">Salvar</button>
+  <a href="{{ url_for('lista_produtos') }}" class="btn btn-danger">Cancelar</a>
+</form>
+{% endblock %}

@@ -1,3 +1,4 @@
+
 import os
 from datetime import datetime
 from io import BytesIO
@@ -79,6 +80,7 @@ configuracoes = Table(
     Column("despesas_percent", Float, nullable=False, server_default="0"),
 )
 
+
 def init_db():
     """Cria as tabelas se não existirem e garante 1 linha em configuracoes."""
     metadata.create_all(engine)
@@ -91,6 +93,7 @@ def init_db():
                 insert(configuracoes).values(id=1, imposto_percent=0.0, despesas_percent=0.0)
             )
 
+
 # --------------------------------------------------------------------
 # Utilidades para datas
 # --------------------------------------------------------------------
@@ -100,6 +103,7 @@ MESES_PT = {
     "agosto": 8, "setembro": 9, "outubro": 10,
     "novembro": 11, "dezembro": 12,
 }
+
 
 def parse_data_venda(texto):
     if isinstance(texto, datetime):
@@ -116,6 +120,7 @@ def parse_data_venda(texto):
         return datetime(ano, MESES_PT[mes_nome], int(dia), int(hora), int(minuto))
     except Exception:
         return None
+
 
 # --------------------------------------------------------------------
 # Importação de vendas do Mercado Livre
@@ -217,12 +222,14 @@ def importar_vendas_ml(caminho_arquivo, engine: Engine):
         "vendas_sem_produto": vendas_sem_produto,
     }
 
+
 # --------------------------------------------------------------------
-# Rotas principais
+# DASHBOARD
 # --------------------------------------------------------------------
 @app.route("/")
 def dashboard():
     with engine.connect() as conn:
+        # Total de produtos e estoque
         total_produtos = conn.execute(
             select(func.count()).select_from(produtos)
         ).scalar_one()
@@ -231,32 +238,57 @@ def dashboard():
             select(func.coalesce(func.sum(produtos.c.estoque_atual), 0))
         ).scalar_one()
 
+        # Receita e custo totais
         receita_total = conn.execute(
             select(func.coalesce(func.sum(vendas.c.receita_total), 0))
         ).scalar_one()
 
-        lucro_total = conn.execute(
-            select(func.coalesce(func.sum(vendas.c.margem_contribuicao), 0))
+        custo_total = conn.execute(
+            select(func.coalesce(func.sum(vendas.c.custo_total), 0))
         ).scalar_one()
 
-        margem_media = conn.execute(
-            select(
-                func.coalesce(
-                    func.avg(
-                        func.nullif(
-                            (vendas.c.margem_contribuicao / vendas.c.receita_total) * 100,
-                            0
-                        )
-                    ),
-                    0
-                )
-            )
+        # Comissão total aproximada
+        expr_comissao = (
+            vendas.c.receita_total - vendas.c.custo_total - vendas.c.margem_contribuicao
+        )
+        comissao_total = conn.execute(
+            select(func.coalesce(func.sum(expr_comissao), 0))
         ).scalar_one()
 
-        ticket_medio = conn.execute(
-            select(func.coalesce(func.avg(vendas.c.preco_venda_unitario), 0))
-        ).scalar_one()
+        # Configurações
+        cfg = conn.execute(
+            select(configuracoes).where(configuracoes.c.id == 1)
+        ).mappings().first()
 
+        imposto_percent = float(cfg.get("imposto_percent") or 0) if cfg else 0.0
+        despesas_percent = float(cfg.get("despesas_percent") or 0) if cfg else 0.0
+
+        # Imposto sobre a receita bruta
+        imposto_total = receita_total * (imposto_percent / 100.0)
+
+        # Despesas sobre o valor líquido aproximado (receita - comissão)
+        base_despesas = receita_total - comissao_total
+        despesas_total = base_despesas * (despesas_percent / 100.0)
+
+        # Lucro líquido total
+        lucro_total = (
+            receita_total
+            - custo_total
+            - comissao_total
+            - imposto_total
+            - despesas_total
+        )
+
+        # Ticket médio
+        qtd_vendas = conn.execute(
+            select(func.count()).select_from(vendas)
+        ).scalar_one()
+        ticket_medio = receita_total / qtd_vendas if qtd_vendas else 0.0
+
+        # Margem média (lucro líquido / receita)
+        margem_media = (lucro_total / receita_total * 100.0) if receita_total > 0 else 0.0
+
+        # Produto mais vendido
         produto_mais_vendido = conn.execute(
             select(produtos.c.nome, func.sum(vendas.c.quantidade).label("qtd"))
             .select_from(vendas.join(produtos))
@@ -265,6 +297,7 @@ def dashboard():
             .limit(1)
         ).first()
 
+        # Produto com maior margem de contribuição total
         produto_maior_lucro = conn.execute(
             select(produtos.c.nome, func.sum(vendas.c.margem_contribuicao).label("lucro"))
             .select_from(vendas.join(produtos))
@@ -273,6 +306,7 @@ def dashboard():
             .limit(1)
         ).first()
 
+        # Pior margem
         produto_pior_margem = conn.execute(
             select(produtos.c.nome, func.sum(vendas.c.margem_contribuicao).label("margem"))
             .select_from(vendas.join(produtos))
@@ -280,8 +314,6 @@ def dashboard():
             .order_by(func.sum(vendas.c.margem_contribuicao).asc())
             .limit(1)
         ).first()
-
-        cfg = conn.execute(select(configuracoes).where(configuracoes.c.id == 1)).mappings().first()
 
     return render_template(
         "dashboard.html",
@@ -291,12 +323,13 @@ def dashboard():
         lucro_total=lucro_total,
         margem_media=margem_media,
         ticket_medio=ticket_medio,
-        comissao_total=0,
+        comissao_total=comissao_total,
         produto_mais_vendido=produto_mais_vendido,
         produto_maior_lucro=produto_maior_lucro,
         produto_pior_margem=produto_pior_margem,
         cfg=cfg,
     )
+
 
 # ---------------- PRODUTOS ----------------
 @app.route("/produtos")
@@ -304,6 +337,7 @@ def lista_produtos():
     with engine.connect() as conn:
         produtos_rows = conn.execute(select(produtos).order_by(produtos.c.nome)).mappings().all()
     return render_template("produtos.html", produtos=produtos_rows)
+
 
 @app.route("/produtos/novo", methods=["GET", "POST"])
 def novo_produto():
@@ -329,6 +363,7 @@ def novo_produto():
         return redirect(url_for("lista_produtos"))
 
     return render_template("produto_form.html", produto=None)
+
 
 @app.route("/produtos/<int:produto_id>/editar", methods=["GET", "POST"])
 def editar_produto(produto_id):
@@ -365,6 +400,7 @@ def editar_produto(produto_id):
 
     return render_template("produto_form.html", produto=produto_row)
 
+
 @app.route("/produtos/<int:produto_id>/excluir", methods=["POST"])
 def excluir_produto(produto_id):
     with engine.begin() as conn:
@@ -372,11 +408,15 @@ def excluir_produto(produto_id):
     flash("Produto excluído.", "success")
     return redirect(url_for("lista_produtos"))
 
+
 # ---------------- VENDAS ----------------
 @app.route("/vendas")
 def lista_vendas():
+    data_ini = request.args.get("data_ini")
+    data_fim = request.args.get("data_fim")
+
     with engine.connect() as conn:
-        vendas_rows = conn.execute(
+        stmt = (
             select(
                 vendas.c.id,
                 vendas.c.data_venda,
@@ -390,8 +430,18 @@ def lista_vendas():
                 produtos.c.nome,
             )
             .select_from(vendas.join(produtos))
-            .order_by(vendas.c.data_venda.desc(), vendas.c.id.desc())
-        ).mappings().all()
+        )
+
+        if data_ini:
+            inicio_str = f"{data_ini}T00:00:00"
+            stmt = stmt.where(vendas.c.data_venda >= inicio_str)
+        if data_fim:
+            fim_str = f"{data_fim}T23:59:59"
+            stmt = stmt.where(vendas.c.data_venda <= fim_str)
+
+        stmt = stmt.order_by(vendas.c.data_venda.desc(), vendas.c.id.desc())
+
+        vendas_rows = conn.execute(stmt).mappings().all()
 
         lotes = conn.execute(
             select(
@@ -408,7 +458,15 @@ def lista_vendas():
             select(produtos.c.id, produtos.c.nome).order_by(produtos.c.nome)
         ).mappings().all()
 
-    return render_template("vendas.html", vendas=vendas_rows, lotes=lotes, produtos=produtos_rows)
+    return render_template(
+        "vendas.html",
+        vendas=vendas_rows,
+        lotes=lotes,
+        produtos=produtos_rows,
+        data_ini=data_ini,
+        data_fim=data_fim,
+    )
+
 
 @app.route("/vendas/manual", methods=["POST"])
 def criar_venda_manual():
@@ -450,6 +508,7 @@ def criar_venda_manual():
 
     flash("Venda manual registrada com sucesso!", "success")
     return redirect(url_for("lista_vendas"))
+
 
 @app.route("/vendas/<int:venda_id>/editar", methods=["GET", "POST"])
 def editar_venda(venda_id):
@@ -495,6 +554,7 @@ def editar_venda(venda_id):
 
     return render_template("editar_venda.html", venda=venda_row)
 
+
 @app.route("/vendas/<int:venda_id>/excluir", methods=["POST"])
 def excluir_venda(venda_id):
     with engine.begin() as conn:
@@ -502,12 +562,14 @@ def excluir_venda(venda_id):
     flash("Venda excluída com sucesso!", "success")
     return redirect(url_for("lista_vendas"))
 
+
 @app.route("/vendas/lote/<lote_id>/excluir", methods=["POST"])
 def excluir_lote_vendas(lote_id):
     with engine.begin() as conn:
         conn.execute(delete(vendas).where(vendas.c.lote_importacao == lote_id))
     flash("Lote de importação excluído com sucesso!", "success")
     return redirect(url_for("lista_vendas"))
+
 
 # ---------------- IMPORT / EXPORT ----------------
 @app.route("/importar_ml", methods=["GET", "POST"])
@@ -538,6 +600,7 @@ def importar_ml_view():
         return redirect(url_for("importar_ml_view"))
 
     return render_template("importar_ml.html")
+
 
 @app.route("/exportar_consolidado")
 def exportar_consolidado():
@@ -574,7 +637,6 @@ def exportar_consolidado():
     )
 
 
-
 @app.route("/exportar_template")
 def exportar_template():
     """Exporta o modelo de planilha para preenchimento manual (SKU, Título, Quantidade, Receita, Comissao, PrecoMedio)."""
@@ -591,6 +653,7 @@ def exportar_template():
         mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     )
 
+
 # ---------------- ESTOQUE / AJUSTES ----------------
 @app.route("/estoque")
 def estoque_view():
@@ -605,6 +668,7 @@ def estoque_view():
             ).order_by(produtos.c.nome)
         ).mappings().all()
     return render_template("estoque.html", produtos=produtos_rows)
+
 
 @app.route("/estoque/ajuste", methods=["POST"])
 def ajuste_estoque():
@@ -646,6 +710,7 @@ def ajuste_estoque():
     flash("Ajuste de estoque registrado!", "success")
     return redirect(url_for("estoque_view"))
 
+
 # ---------------- CONFIGURAÇÕES ----------------
 @app.route("/configuracoes", methods=["GET", "POST"])
 def configuracoes_view():
@@ -668,30 +733,27 @@ def configuracoes_view():
 
     return render_template("configuracoes.html", cfg=cfg)
 
-# ---------------- RELATÓRIO LUCRO ----------------
 
+# ---------------- RELATÓRIO LUCRO ----------------
 @app.route("/relatorio_lucro")
 def relatorio_lucro():
     """Relatório de lucro detalhado por produto.
 
     Margem líquida = Receita - Comissão ML - Custo - Despesas - Imposto
-    - Comissão ML é estimada como a diferença entre (Receita - Custo) e a margem registrada hoje.
-      Isso permite exibir a comissão mesmo que ela já esteja embutida na margem de contribuição.
-    - Imposto e Despesas usam os percentuais configurados em "Configurações" e são aplicados
-      sobre a receita total do produto.
     """
+
+    data_ini = request.args.get("data_ini")
+    data_fim = request.args.get("data_fim")
 
     with engine.connect() as conn:
         cfg = conn.execute(
-            select(configuracoes)
-            .where(configuracoes.c.id == 1)
+            select(configuracoes).where(configuracoes.c.id == 1)
         ).mappings().first() or {}
 
         imposto_percent = float(cfg.get("imposto_percent") or 0)
         despesas_percent = float(cfg.get("despesas_percent") or 0)
 
-        # Consolida vendas por produto
-        rows = conn.execute(
+        stmt = (
             select(
                 produtos.c.nome.label("produto"),
                 func.sum(vendas.c.quantidade).label("qtd"),
@@ -700,8 +762,18 @@ def relatorio_lucro():
                 func.sum(vendas.c.margem_contribuicao).label("margem_atual"),
             )
             .select_from(vendas.join(produtos))
-            .group_by(produtos.c.id)
-        ).mappings().all()
+        )
+
+        if data_ini:
+            inicio_str = f"{data_ini}T00:00:00"
+            stmt = stmt.where(vendas.c.data_venda >= inicio_str)
+        if data_fim:
+            fim_str = f"{data_fim}T23:59:59"
+            stmt = stmt.where(vendas.c.data_venda <= fim_str)
+
+        stmt = stmt.group_by(produtos.c.id)
+
+        rows = conn.execute(stmt).mappings().all()
 
     linhas = []
     totais = {
@@ -719,13 +791,13 @@ def relatorio_lucro():
         custo = float(r["custo"] or 0)
         margem_atual = float(r["margem_atual"] or 0)
 
-        # Estimativa da comissão do ML:
-        # se hoje margem = receita - custo - comissao, então
-        # comissao = (receita - custo) - margem_atual
+        # comissao ≈ (receita - custo) - margem_atual
         comissao_ml = max(0.0, (receita - custo) - margem_atual)
 
         imposto_val = receita * (imposto_percent / 100.0)
-        despesas_val = receita * (despesas_percent / 100.0)
+
+        base_despesas = receita - comissao_ml
+        despesas_val = base_despesas * (despesas_percent / 100.0)
 
         margem_liquida = receita - custo - comissao_ml - imposto_val - despesas_val
 
@@ -741,7 +813,6 @@ def relatorio_lucro():
         }
         linhas.append(linha)
 
-        # Totais gerais
         totais["qtd"] += linha["qtd"]
         totais["receita"] += receita
         totais["custo"] += custo
@@ -750,7 +821,6 @@ def relatorio_lucro():
         totais["despesas"] += despesas_val
         totais["margem_liquida"] += margem_liquida
 
-    # Ordena do maior lucro líquido para o menor
     linhas.sort(key=lambda x: x["margem_liquida"], reverse=True)
 
     return render_template(
@@ -759,6 +829,8 @@ def relatorio_lucro():
         totais=totais,
         imposto_percent=imposto_percent,
         despesas_percent=despesas_percent,
+        data_ini=data_ini,
+        data_fim=data_fim,
     )
 
 

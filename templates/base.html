@@ -1,1 +1,101 @@
-<!-- Template base.html gerado. Preencha com conteúdo desejado. -->
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <title>MetriFy ERP</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body { margin: 0; font-family: Arial, sans-serif; background:#f3f4f6; }
+    .layout { display:flex; min-height:100vh; }
+    .sidebar {
+      width:240px;
+      background:#0d6efd;
+      color:#fff;
+      padding:20px 10px;
+      box-sizing:border-box;
+    }
+    .sidebar h2 { margin:0 0 20px 0; text-align:center; }
+    .sidebar a {
+      color:#fff;
+      text-decoration:none;
+      display:block;
+      padding:10px 12px;
+      border-radius:6px;
+      margin-bottom:8px;
+      font-size:15px;
+    }
+    .sidebar a:hover { background:rgba(255,255,255,0.15); }
+    .content {
+      flex:1;
+      padding:22px;
+      box-sizing:border-box;
+    }
+    .card-grid { display:grid; grid-template-columns: repeat(auto-fit,minmax(220px,1fr)); gap:16px; }
+    .card {
+      background:#fff;
+      padding:16px;
+      border-radius:8px;
+      box-shadow:0 1px 3px rgba(0,0,0,0.1);
+    }
+    table { width:100%; border-collapse:collapse; background:#fff; margin-top:12px; }
+    th, td { padding:8px 10px; border-bottom:1px solid #e5e7eb; text-align:left; font-size:14px; }
+    th { background:#f1f5f9; }
+    .btn {
+      padding:6px 12px;
+      border-radius:6px;
+      border:none;
+      cursor:pointer;
+      font-size:14px;
+      text-decoration:none;
+      display:inline-block;
+      margin:2px 0;
+    }
+    .btn-primary { background:#0d6efd; color:#fff; }
+    .btn-danger { background:#dc3545; color:#fff; }
+    .btn-warning { background:#f59e0b; color:#fff; }
+    .btn-success { background:#16a34a; color:#fff; }
+    input, select, textarea {
+      padding:8px;
+      border-radius:6px;
+      border:1px solid #d1d5db;
+      width:100%;
+      box-sizing:border-box;
+      margin-bottom:8px;
+      font-size:14px;
+    }
+    label { font-size:14px; margin-bottom:4px; display:block; }
+    .alert { padding:10px 12px; border-radius:6px; margin-bottom:12px; font-size:14px; }
+    .alert-success { background:#d1fae5; color:#065f46; }
+    .alert-danger { background:#fee2e2; color:#b91c1c; }
+    .alert-warning { background:#fef3c7; color:#92400e; }
+    .small { font-size:12px; color:#6b7280; }
+    .filters { display:flex; flex-wrap:wrap; gap:10px; align-items:flex-end; margin:10px 0; }
+    .filters > div { min-width:140px; }
+  </style>
+</head>
+<body>
+<div class="layout">
+  <div class="sidebar">
+    <h2>MetriFy</h2>
+    <a href="{{ url_for('dashboard') }}">Dashboard</a>
+    <a href="{{ url_for('lista_produtos') }}">Produtos</a>
+    <a href="{{ url_for('estoque_view') }}">Estoque</a>
+    <a href="{{ url_for('importar_ml_view') }}">Importar Vendas</a>
+    <a href="{{ url_for('lista_vendas') }}">Vendas</a>
+    <a href="{{ url_for('relatorio_lucro') }}">Relatório de Lucro</a>
+    <a href="{{ url_for('configuracoes_view') }}">Configurações</a>
+  </div>
+  <div class="content">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }}">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    {% block content %}{% endblock %}
+  </div>
+</div>
+</body>
+</html>

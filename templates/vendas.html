@@ -1,1 +1,112 @@
-<!-- Template vendas.html gerado. Preencha com conteúdo desejado. -->
+{% extends "base.html" %}
+{% block content %}
+<h1>Vendas</h1>
+
+<h3>Filtro por data</h3>
+<form method="GET" class="filters">
+  <div>
+    <label>Data inicial</label>
+    <input type="date" name="data_ini" value="{{ data_ini or '' }}">
+  </div>
+  <div>
+    <label>Data final</label>
+    <input type="date" name="data_fim" value="{{ data_fim or '' }}">
+  </div>
+  <div>
+    <button class="btn btn-primary" type="submit">Filtrar</button>
+  </div>
+</form>
+
+<h3>Registrar venda manual</h3>
+<form method="POST" action="{{ url_for('criar_venda_manual') }}" class="filters">
+  <div>
+    <label>Produto</label>
+    <select name="produto_id" required>
+      {% for p in produtos %}
+        <option value="{{ p.id }}">{{ p.nome }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div>
+    <label>Quantidade</label>
+    <input type="number" name="quantidade" min="1" required>
+  </div>
+  <div>
+    <label>Preço unitário (R$)</label>
+    <input type="number" step="0.01" name="preco_venda_unitario" required>
+  </div>
+  <div>
+    <label>Data da venda</label>
+    <input type="datetime-local" name="data_venda">
+  </div>
+  <div>
+    <button type="submit" class="btn btn-success">Lançar venda</button>
+  </div>
+</form>
+
+<h2>Lista de vendas</h2>
+<table>
+  <thead>
+    <tr>
+      <th>ID</th>
+      <th>Data</th>
+      <th>Produto</th>
+      <th>Qtd</th>
+      <th>Preço unit.</th>
+      <th>Receita</th>
+      <th>Margem contrib.</th>
+      <th>Origem</th>
+      <th>Lote</th>
+      <th>Ações</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for v in vendas %}
+    <tr>
+      <td>{{ v.id }}</td>
+      <td>{{ v.data_venda }}</td>
+      <td>{{ v.nome }}</td>
+      <td>{{ v.quantidade }}</td>
+      <td>R$ {{ '%.2f'|format(v.preco_venda_unitario) }}</td>
+      <td>R$ {{ '%.2f'|format(v.receita_total) }}</td>
+      <td>R$ {{ '%.2f'|format(v.margem_contribuicao) }}</td>
+      <td>{{ v.origem }}</td>
+      <td>{{ v.lote_importacao or '-' }}</td>
+      <td>
+        <a href="{{ url_for('editar_venda', venda_id=v.id) }}" class="btn btn-warning">Editar</a>
+        <form method="POST" action="{{ url_for('excluir_venda', venda_id=v.id) }}" style="display:inline;">
+          <button type="submit" class="btn btn-danger" onclick="return confirm('Excluir venda?');">Excluir</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<h2>Lotes de importação</h2>
+<table>
+  <thead>
+    <tr>
+      <th>Lote</th>
+      <th>Qtd. vendas</th>
+      <th>Receita do lote</th>
+      <th>Ações</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for l in lotes %}
+    <tr>
+      <td>{{ l.lote_importacao }}</td>
+      <td>{{ l.qtd_vendas }}</td>
+      <td>R$ {{ '%.2f'|format(l.receita_lote) }}</td>
+      <td>
+        <form method="POST" action="{{ url_for('excluir_lote_vendas', lote_id=l.lote_importacao) }}" style="display:inline;">
+          <button type="submit" class="btn btn-danger" onclick="return confirm('Excluir todas as vendas deste lote?');">Excluir lote</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+{% endblock %}

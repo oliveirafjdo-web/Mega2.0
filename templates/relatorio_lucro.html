@@ -1,1 +1,66 @@
-<!-- Template relatorio_lucro.html gerado. Preencha com conteúdo desejado. -->
+{% extends "base.html" %}
+{% block content %}
+<h1>Relatório de Lucro</h1>
+
+<form method="GET" class="filters">
+  <div>
+    <label>Data inicial</label>
+    <input type="date" name="data_ini" value="{{ data_ini or '' }}">
+  </div>
+  <div>
+    <label>Data final</label>
+    <input type="date" name="data_fim" value="{{ data_fim or '' }}">
+  </div>
+  <div>
+    <button type="submit" class="btn btn-primary">Filtrar</button>
+  </div>
+  <div style="flex:1;"></div>
+  <div>
+    <span class="small">
+      Imposto: {{ '%.2f'|format(imposto_percent) }}% |
+      Despesas: {{ '%.2f'|format(despesas_percent) }}%
+    </span>
+  </div>
+</form>
+
+<table>
+  <thead>
+    <tr>
+      <th>Produto</th>
+      <th>Qtd</th>
+      <th>Receita Bruta</th>
+      <th>Custo</th>
+      <th>Comissão ML (est.)</th>
+      <th>Imposto</th>
+      <th>Despesas</th>
+      <th>Lucro Líquido</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for l in linhas %}
+    <tr>
+      <td>{{ l.produto }}</td>
+      <td>{{ '%.0f'|format(l.qtd) }}</td>
+      <td>R$ {{ '%.2f'|format(l.receita) }}</td>
+      <td>R$ {{ '%.2f'|format(l.custo) }}</td>
+      <td>R$ {{ '%.2f'|format(l.comissao) }}</td>
+      <td>R$ {{ '%.2f'|format(l.imposto) }}</td>
+      <td>R$ {{ '%.2f'|format(l.despesas) }}</td>
+      <td>R$ {{ '%.2f'|format(l.margem_liquida) }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+  <tfoot>
+    <tr style="background:#eef; font-weight:bold;">
+      <td>Total</td>
+      <td>{{ '%.0f'|format(totais.qtd) }}</td>
+      <td>R$ {{ '%.2f'|format(totais.receita) }}</td>
+      <td>R$ {{ '%.2f'|format(totais.custo) }}</td>
+      <td>R$ {{ '%.2f'|format(totais.comissao) }}</td>
+      <td>R$ {{ '%.2f'|format(totais.imposto) }}</td>
+      <td>R$ {{ '%.2f'|format(totais.despesas) }}</td>
+      <td>R$ {{ '%.2f'|format(totais.margem_liquida) }}</td>
+    </tr>
+  </tfoot>
+</table>
+{% endblock %}

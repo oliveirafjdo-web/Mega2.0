@@ -1,1 +1,54 @@
-<!-- Template estoque.html gerado. Preencha com conteúdo desejado. -->
+{% extends "base.html" %}
+{% block content %}
+<h1>Estoque</h1>
+
+<table>
+  <thead>
+    <tr>
+      <th>ID</th>
+      <th>Produto</th>
+      <th>SKU</th>
+      <th>Estoque Atual</th>
+      <th>Custo Unitário</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for p in produtos %}
+    <tr>
+      <td>{{ p.id }}</td>
+      <td>{{ p.nome }}</td>
+      <td>{{ p.sku }}</td>
+      <td>{{ p.estoque_atual }}</td>
+      <td>R$ {{ '%.2f'|format(p.custo_unitario) }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+<h2>Ajustar Estoque</h2>
+<form method="POST" action="{{ url_for('ajuste_estoque') }}">
+  <label>Produto</label>
+  <select name="produto_id" required>
+    {% for p in produtos %}
+      <option value="{{ p.id }}">{{ p.nome }} (Estoque: {{ p.estoque_atual }})</option>
+    {% endfor %}
+  </select>
+
+  <label>Tipo</label>
+  <select name="tipo" required>
+    <option value="entrada">Entrada</option>
+    <option value="saida">Saída</option>
+  </select>
+
+  <label>Quantidade</label>
+  <input type="number" name="quantidade" min="1" required>
+
+  <label>Custo unitário (opcional para atualizar)</label>
+  <input type="number" step="0.01" name="custo_unitario">
+
+  <label>Observação</label>
+  <textarea name="observacao"></textarea>
+
+  <button type="submit" class="btn btn-primary">Registrar ajuste</button>
+</form>
+{% endblock %}
