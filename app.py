@@ -1,4 +1,3 @@
-
 import os
 from datetime import datetime
 from io import BytesIO
@@ -188,25 +187,19 @@ def importar_vendas_ml(caminho_arquivo, engine: Engine):
                 receita_total = 0.0
 
             preco_medio_venda = receita_total / unidades if unidades > 0 else 0.0
-custo_total = custo_unitario * unidades
+            custo_total = custo_unitario * unidades
 
-# ----- Comissão Mercado Livre direto da planilha -----
-tarifa = row.get("Tarifa de venda e impostos (BRL)")
+            # Comissão Mercado Livre a partir da coluna 'Tarifa de venda e impostos (BRL)'
+            tarifa = row.get("Tarifa de venda e impostos (BRL)")
+            try:
+                comissao_ml = float(tarifa) if tarifa == tarifa else 0.0
+            except Exception:
+                comissao_ml = 0.0
+            if comissao_ml < 0:
+                comissao_ml = -comissao_ml
 
-try:
-    comissao_ml = float(tarifa) if tarifa == tarifa else 0.0
-except Exception:
-    comissao_ml = 0.0
-
-# A planilha traz NEGATIVO, então deixamos positivo
-if comissao_ml < 0:
-    comissao_ml = -comissao_ml
-
-# Margem já descontando comissão ML
-margem_contribuicao = receita_total - custo_total - comissao_ml
-# -----------------------------------------------------
-
-numero_venda_ml = str(row.get("N.º de venda"))
+            margem_contribuicao = receita_total - custo_total - comissao_ml
+            numero_venda_ml = str(row.get("N.º de venda"))
 
             conn.execute(
                 insert(vendas).values(
@@ -240,12 +233,11 @@ numero_venda_ml = str(row.get("N.º de venda"))
 
 
 # --------------------------------------------------------------------
-# DASHBOARD
+# Rotas principais
 # --------------------------------------------------------------------
 @app.route("/")
 def dashboard():
     with engine.connect() as conn:
-        # Total de produtos e estoque
         total_produtos = conn.execute(
             select(func.count()).select_from(produtos)
         ).scalar_one()
@@ -254,57 +246,32 @@ def dashboard():
             select(func.coalesce(func.sum(produtos.c.estoque_atual), 0))
         ).scalar_one()
 
-        # Receita e custo totais
         receita_total = conn.execute(
             select(func.coalesce(func.sum(vendas.c.receita_total), 0))
         ).scalar_one()
 
-        custo_total = conn.execute(
-            select(func.coalesce(func.sum(vendas.c.custo_total), 0))
+        lucro_total = conn.execute(
+            select(func.coalesce(func.sum(vendas.c.margem_contribuicao), 0))
         ).scalar_one()
 
-        # Comissão total aproximada
-        expr_comissao = (
-            vendas.c.receita_total - vendas.c.custo_total - vendas.c.margem_contribuicao
-        )
-        comissao_total = conn.execute(
-            select(func.coalesce(func.sum(expr_comissao), 0))
+        margem_media = conn.execute(
+            select(
+                func.coalesce(
+                    func.avg(
+                        func.nullif(
+                            (vendas.c.margem_contribuicao / vendas.c.receita_total) * 100,
+                            0
+                        )
+                    ),
+                    0
+                )
+            )
         ).scalar_one()
 
-        # Configurações
-        cfg = conn.execute(
-            select(configuracoes).where(configuracoes.c.id == 1)
-        ).mappings().first()
-
-        imposto_percent = float(cfg.get("imposto_percent") or 0) if cfg else 0.0
-        despesas_percent = float(cfg.get("despesas_percent") or 0) if cfg else 0.0
-
-        # Imposto sobre a receita bruta
-        imposto_total = receita_total * (imposto_percent / 100.0)
-
-        # Despesas sobre o valor líquido aproximado (receita - comissão)
-        base_despesas = receita_total - comissao_total
-        despesas_total = base_despesas * (despesas_percent / 100.0)
-
-        # Lucro líquido total
-        lucro_total = (
-            receita_total
-            - custo_total
-            - comissao_total
-            - imposto_total
-            - despesas_total
-        )
-
-        # Ticket médio
-        qtd_vendas = conn.execute(
-            select(func.count()).select_from(vendas)
+        ticket_medio = conn.execute(
+            select(func.coalesce(func.avg(vendas.c.preco_venda_unitario), 0))
         ).scalar_one()
-        ticket_medio = receita_total / qtd_vendas if qtd_vendas else 0.0
 
-        # Margem média (lucro líquido / receita)
-        margem_media = (lucro_total / receita_total * 100.0) if receita_total > 0 else 0.0
-
-        # Produto mais vendido
         produto_mais_vendido = conn.execute(
             select(produtos.c.nome, func.sum(vendas.c.quantidade).label("qtd"))
             .select_from(vendas.join(produtos))
@@ -313,7 +280,6 @@ def dashboard():
             .limit(1)
         ).first()
 
-        # Produto com maior margem de contribuição total
         produto_maior_lucro = conn.execute(
             select(produtos.c.nome, func.sum(vendas.c.margem_contribuicao).label("lucro"))
             .select_from(vendas.join(produtos))
@@ -322,7 +288,6 @@ def dashboard():
             .limit(1)
         ).first()
 
-        # Pior margem
         produto_pior_margem = conn.execute(
             select(produtos.c.nome, func.sum(vendas.c.margem_contribuicao).label("margem"))
             .select_from(vendas.join(produtos))
@@ -330,6 +295,8 @@ def dashboard():
             .order_by(func.sum(vendas.c.margem_contribuicao).asc())
             .limit(1)
         ).first()
+
+        cfg = conn.execute(select(configuracoes).where(configuracoes.c.id == 1)).mappings().first()
 
     return render_template(
         "dashboard.html",
@@ -339,7 +306,7 @@ def dashboard():
         lucro_total=lucro_total,
         margem_media=margem_media,
         ticket_medio=ticket_medio,
-        comissao_total=comissao_total,
+        comissao_total=0,
         produto_mais_vendido=produto_mais_vendido,
         produto_maior_lucro=produto_maior_lucro,
         produto_pior_margem=produto_pior_margem,
@@ -428,11 +395,8 @@ def excluir_produto(produto_id):
 # ---------------- VENDAS ----------------
 @app.route("/vendas")
 def lista_vendas():
-    data_ini = request.args.get("data_ini")
-    data_fim = request.args.get("data_fim")
-
     with engine.connect() as conn:
-        stmt = (
+        vendas_rows = conn.execute(
             select(
                 vendas.c.id,
                 vendas.c.data_venda,
@@ -446,18 +410,8 @@ def lista_vendas():
                 produtos.c.nome,
             )
             .select_from(vendas.join(produtos))
-        )
-
-        if data_ini:
-            inicio_str = f"{data_ini}T00:00:00"
-            stmt = stmt.where(vendas.c.data_venda >= inicio_str)
-        if data_fim:
-            fim_str = f"{data_fim}T23:59:59"
-            stmt = stmt.where(vendas.c.data_venda <= fim_str)
-
-        stmt = stmt.order_by(vendas.c.data_venda.desc(), vendas.c.id.desc())
-
-        vendas_rows = conn.execute(stmt).mappings().all()
+            .order_by(vendas.c.data_venda.desc(), vendas.c.id.desc())
+        ).mappings().all()
 
         lotes = conn.execute(
             select(
@@ -474,14 +428,7 @@ def lista_vendas():
             select(produtos.c.id, produtos.c.nome).order_by(produtos.c.nome)
         ).mappings().all()
 
-    return render_template(
-        "vendas.html",
-        vendas=vendas_rows,
-        lotes=lotes,
-        produtos=produtos_rows,
-        data_ini=data_ini,
-        data_fim=data_fim,
-    )
+    return render_template("vendas.html", vendas=vendas_rows, lotes=lotes, produtos=produtos_rows)
 
 
 @app.route("/vendas/manual", methods=["POST"])
@@ -756,20 +703,23 @@ def relatorio_lucro():
     """Relatório de lucro detalhado por produto.
 
     Margem líquida = Receita - Comissão ML - Custo - Despesas - Imposto
+    - Comissão ML é estimada como a diferença entre (Receita - Custo) e a margem registrada hoje.
+      Isso permite exibir a comissão mesmo que ela já esteja embutida na margem de contribuição.
+    - Imposto e Despesas usam os percentuais configurados em "Configurações" e são aplicados
+      sobre a receita total do produto.
     """
-
-    data_ini = request.args.get("data_ini")
-    data_fim = request.args.get("data_fim")
 
     with engine.connect() as conn:
         cfg = conn.execute(
-            select(configuracoes).where(configuracoes.c.id == 1)
+            select(configuracoes)
+            .where(configuracoes.c.id == 1)
         ).mappings().first() or {}
 
         imposto_percent = float(cfg.get("imposto_percent") or 0)
         despesas_percent = float(cfg.get("despesas_percent") or 0)
 
-        stmt = (
+        # Consolida vendas por produto
+        rows = conn.execute(
             select(
                 produtos.c.nome.label("produto"),
                 func.sum(vendas.c.quantidade).label("qtd"),
@@ -778,18 +728,8 @@ def relatorio_lucro():
                 func.sum(vendas.c.margem_contribuicao).label("margem_atual"),
             )
             .select_from(vendas.join(produtos))
-        )
-
-        if data_ini:
-            inicio_str = f"{data_ini}T00:00:00"
-            stmt = stmt.where(vendas.c.data_venda >= inicio_str)
-        if data_fim:
-            fim_str = f"{data_fim}T23:59:59"
-            stmt = stmt.where(vendas.c.data_venda <= fim_str)
-
-        stmt = stmt.group_by(produtos.c.id)
-
-        rows = conn.execute(stmt).mappings().all()
+            .group_by(produtos.c.id)
+        ).mappings().all()
 
     linhas = []
     totais = {
@@ -807,13 +747,13 @@ def relatorio_lucro():
         custo = float(r["custo"] or 0)
         margem_atual = float(r["margem_atual"] or 0)
 
-        # comissao ≈ (receita - custo) - margem_atual
+        # Estimativa da comissão do ML:
+        # se hoje margem = receita - custo - comissao, então
+        # comissao = (receita - custo) - margem_atual
         comissao_ml = max(0.0, (receita - custo) - margem_atual)
 
         imposto_val = receita * (imposto_percent / 100.0)
-
-        base_despesas = receita - comissao_ml
-        despesas_val = base_despesas * (despesas_percent / 100.0)
+        despesas_val = receita * (despesas_percent / 100.0)
 
         margem_liquida = receita - custo - comissao_ml - imposto_val - despesas_val
 
@@ -829,6 +769,7 @@ def relatorio_lucro():
         }
         linhas.append(linha)
 
+        # Totais gerais
         totais["qtd"] += linha["qtd"]
         totais["receita"] += receita
         totais["custo"] += custo
@@ -837,6 +778,7 @@ def relatorio_lucro():
         totais["despesas"] += despesas_val
         totais["margem_liquida"] += margem_liquida
 
+    # Ordena do maior lucro líquido para o menor
     linhas.sort(key=lambda x: x["margem_liquida"], reverse=True)
 
     return render_template(
@@ -845,11 +787,12 @@ def relatorio_lucro():
         totais=totais,
         imposto_percent=imposto_percent,
         despesas_percent=despesas_percent,
-        data_ini=data_ini,
-        data_fim=data_fim,
     )
 
 
+# --------------------------------------------------------------------
+# Inicialização
+# --------------------------------------------------------------------
 init_db()
 
 if __name__ == "__main__":
