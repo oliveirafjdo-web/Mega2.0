@@ -15,7 +15,16 @@ import pandas as pd
 # --------------------------------------------------------------------
 # Configuração de banco: Postgres em produção, SQLite em desenvolvimento
 # --------------------------------------------------------------------
-DATABASE_URL = os.environ.get("DATABASE_URL", "sqlite:////tmp/metrifiy.db")
+# Detecta Postgres (Render) ou cai para SQLite local
+raw_db_url = os.environ.get("DATABASE_URL")
+
+if raw_db_url:
+    # Render costuma entregar "postgres://", mas o SQLAlchemy quer "postgresql+psycopg2://"
+    if raw_db_url.startswith("postgres://"):
+        raw_db_url = raw_db_url.replace("postgres://", "postgresql+psycopg2://", 1)
+    DATABASE_URL = raw_db_url
+else:
+    DATABASE_URL = "sqlite:////tmp/metrifiy.db"
 UPLOAD_FOLDER = os.environ.get("UPLOAD_FOLDER", "uploads")
 
 app = Flask(__name__)
