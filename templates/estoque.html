@@ -1,90 +1,91 @@
 {% extends "base.html" %}
-
 {% block content %}
-<h1>Estoque – Previsão e Reposição</h1>
+<h1>Estoque</h1>
 
 <p class="text-muted">
-    *Cálculo baseado nos últimos {{ janela_dias }} dias de venda · Estoque mínimo desejado: {{ dias_minimos }} dias*
+  Médias calculadas com base nos últimos {{ janela_dias }} dias de vendas.
+  Estoque mínimo desejado: {{ dias_minimos }} dias de cobertura.
 </p>
 
+<h2>Visão de Estoque e Giro</h2>
 <table>
-    <thead>
-        <tr>
-            <th>Produto</th>
-            <th>SKU</th>
-            <th>Estoque Atual</th>
-            <th>Média Diária</th>
-            <th>Média Mensal</th>
-            <th>Dias de Cobertura</th>
-            <th>Status</th>
-        </tr>
-    </thead>
-
-    <tbody>
-        {% for p in produtos %}
-        <tr>
-            <td>{{ p.nome }}</td>
-            <td>{{ p.sku }}</td>
-            <td>{{ p.estoque_atual }}</td>
-
-            <td>
-                {% if p.media_diaria %}
-                    {{ "%.2f"|format(p.media_diaria) }}
-                {% else %}
-                    0
-                {% endif %}
-            </td>
-
-            <td>
-                {% if p.media_mensal %}
-                    {{ "%.2f"|format(p.media_mensal) }}
-                {% else %}
-                    0
-                {% endif %}
-            </td>
-
-            <td>
-                {% if p.dias_cobertura %}
-                    {{ "%.1f"|format(p.dias_cobertura) }}
-                {% else %}
-                    0
-                {% endif %}
-            </td>
-
-            <td>
-                {% if p.precisa_repor %}
-                    <span style="color:red; font-weight:bold;">Repor urgente</span>
-                {% else %}
-                    <span style="color:green; font-weight:bold;">OK</span>
-                {% endif %}
-            </td>
-        </tr>
-        {% endfor %}
-    </tbody>
+  <thead>
+    <tr>
+      <th>Produto</th>
+      <th>SKU</th>
+      <th>Estoque atual</th>
+      <th>Média diária<br>(últ. {{ janela_dias }} dias)</th>
+      <th>Média mensal<br>(estimada)</th>
+      <th>Dias de cobertura</th>
+      <th>Situação</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for p in produtos %}
+    <tr class="{% if p.precisa_repor %}estoque-alerta{% endif %}">
+      <td>{{ p.nome }}</td>
+      <td>{{ p.sku }}</td>
+      <td>{{ p.estoque_atual|int }}</td>
+      <td>{{ '%.2f'|format(p.media_diaria) }}</td>
+      <td>{{ '%.2f'|format(p.media_mensal) }}</td>
+      <td>
+        {% if p.dias_cobertura is none %}
+          —
+        {% else %}
+          {{ '%.1f'|format(p.dias_cobertura) }} dias
+        {% endif %}
+      </td>
+      <td>
+        {% if p.dias_cobertura is none %}
+          <span class="badge badge-neutral">Sem vendas recentes</span>
+        {% elif p.precisa_repor %}
+          <span class="badge badge-danger">Repor estoque</span>
+        {% else %}
+          <span class="badge badge-ok">OK</span>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
 </table>
 
-<style>
-    table {
-        width: 100%;
-        border-collapse: collapse;
-        margin-top: 20px;
-        background: white;
-    }
+<br>
 
-    th, td {
-        padding: 10px;
-        border-bottom: 1px solid #ddd;
-        text-align: left;
-    }
+<h2>Ajustar estoque</h2>
+<form method="POST" action="{{ url_for('ajuste_estoque') }}">
+  <div class="form-group">
+    <label for="produto_id">Produto</label>
+    <select name="produto_id" id="produto_id">
+      {% for p in produtos %}
+      <option value="{{ p.id }}">{{ p.nome }} ({{ p.sku }})</option>
+      {% endfor %}
+    </select>
+  </div>
 
-    th {
-        background: #f2f2f2;
-        font-weight: bold;
-    }
+  <div class="form-group">
+    <label for="tipo">Tipo de ajuste</label>
+    <select name="tipo" id="tipo">
+      <option value="entrada">Entrada</option>
+      <option value="saida">Saída</option>
+    </select>
+  </div>
 
-    tr:hover {
-        background: #f9f9f9;
-    }
-</style>
+  <div class="form-group">
+    <label for="quantidade">Quantidade</label>
+    <input type="number" name="quantidade" id="quantidade" min="1" step="1" required>
+  </div>
 
+  <div class="form-group">
+    <label for="custo_unitario">Custo unitário (opcional)</label>
+    <input type="number" step="0.01" name="custo_unitario" id="custo_unitario">
+    <p class="small">Se informado em uma entrada, atualiza o custo do produto.</p>
+  </div>
+
+  <div class="form-group">
+    <label for="observacao">Observação</label>
+    <textarea name="observacao" id="observacao" rows="2"></textarea>
+  </div>
+
+  <button type="submit" class="btn btn-primary">Salvar ajuste</button>
+</form>
 {% endblock %}
