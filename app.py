@@ -247,6 +247,7 @@ def importar_vendas_ml(caminho_arquivo, engine: Engine):
 @app.route("/")
 def dashboard():
     with engine.connect() as conn:
+        # Totais básicos
         total_produtos = conn.execute(
             select(func.count()).select_from(produtos)
         ).scalar_one()
@@ -255,51 +256,73 @@ def dashboard():
             select(func.coalesce(func.sum(produtos.c.estoque_atual), 0))
         ).scalar_one()
 
-        # Totais simples direto no banco
+        # Totais de vendas: MESMA BASE DO RELATÓRIO DE LUCRO
         receita_total = conn.execute(
             select(func.coalesce(func.sum(vendas.c.receita_total), 0))
         ).scalar_one()
 
-        lucro_total = conn.execute(
+        custo_total = conn.execute(
+            select(func.coalesce(func.sum(vendas.c.custo_total), 0))
+        ).scalar_one()
+
+        margem_total = conn.execute(
             select(func.coalesce(func.sum(vendas.c.margem_contribuicao), 0))
         ).scalar_one()
 
-        # Traz as vendas para calcular margem média, ticket e comissão em Python
-        vendas_rows = conn.execute(
+        # Configurações (imposto / despesas)
+        cfg = conn.execute(
+            select(configuracoes).where(configuracoes.c.id == 1)
+        ).mappings().first()
+
+        imposto_percent = float(cfg["imposto_percent"]) if cfg else 0.0
+        despesas_percent = float(cfg["despesas_percent"]) if cfg else 0.0
+
+        # Comissão estimada (mesma lógica do relatório de lucro)
+        comissao_total = (receita_total - custo_total) - margem_total
+        if comissao_total < 0:
+            comissao_total = 0.0
+
+        # Imposto e despesas totais
+        imposto_total = receita_total * (imposto_percent / 100.0)
+        despesas_total = receita_total * (despesas_percent / 100.0)
+
+        # Receita líquida (bruta - comissão - imposto - despesas)
+        receita_liquida_total = receita_total - comissao_total - imposto_total - despesas_total
+
+        # Lucro líquido (TEM QUE BATER COM O RELATÓRIO DE LUCRO)
+        lucro_liquido_total = (
+            receita_total
+            - custo_total
+            - comissao_total
+            - imposto_total
+            - despesas_total
+        )
+
+        # Margem líquida em %
+        margem_liquida_percent = (
+            (lucro_liquido_total / receita_total) * 100.0
+            if receita_total > 0
+            else 0.0
+        )
+
+        # Métricas que você já tinha
+        margem_media = conn.execute(
             select(
-                vendas.c.receita_total,
-                vendas.c.custo_total,
-                vendas.c.margem_contribuicao,
+                func.coalesce(
+                    func.avg(
+                        func.nullif(
+                            (vendas.c.margem_contribuicao / vendas.c.receita_total) * 100,
+                            0
+                        )
+                    ),
+                    0
+                )
             )
-        ).mappings().all()
+        ).scalar_one()
 
-        total_receita = 0.0
-        total_margem = 0.0
-        count_vendas = 0
-        comissao_total = 0.0
-
-        for v in vendas_rows:
-            r = float(v["receita_total"] or 0)
-            c = float(v["custo_total"] or 0)
-            m = float(v["margem_contribuicao"] or 0)
-
-            total_receita += r
-            total_margem += m
-            count_vendas += 1
-
-            # comissão estimada por venda = max(0, (receita - custo) - margem)
-            comissao_venda = max(0.0, (r - c) - m)
-            comissao_total += comissao_venda
-
-        if total_receita > 0:
-            margem_media = (total_margem / total_receita) * 100.0
-        else:
-            margem_media = 0.0
-
-        if count_vendas > 0:
-            ticket_medio = total_receita / count_vendas
-        else:
-            ticket_medio = 0.0
+        ticket_medio = conn.execute(
+            select(func.coalesce(func.avg(vendas.c.preco_venda_unitario), 0))
+        ).scalar_one()
 
         produto_mais_vendido = conn.execute(
             select(produtos.c.nome, func.sum(vendas.c.quantidade).label("qtd"))
@@ -325,19 +348,20 @@ def dashboard():
             .limit(1)
         ).first()
 
-        cfg = conn.execute(
-            select(configuracoes).where(configuracoes.c.id == 1)
-        ).mappings().first()
-
     return render_template(
         "dashboard.html",
         total_produtos=total_produtos,
         estoque_total=estoque_total,
         receita_total=receita_total,
-        lucro_total=lucro_total,
+        receita_liquida_total=receita_liquida_total,
+        custo_total=custo_total,
+        comissao_total=comissao_total,
+        imposto_total=imposto_total,
+        despesas_total=despesas_total,
+        lucro_liquido_total=lucro_liquido_total,
+        margem_liquida_percent=margem_liquida_percent,
         margem_media=margem_media,
         ticket_medio=ticket_medio,
-        comissao_total=comissao_total,
         produto_mais_vendido=produto_mais_vendido,
         produto_maior_lucro=produto_maior_lucro,
         produto_pior_margem=produto_pior_margem,
