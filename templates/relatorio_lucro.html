@@ -2,25 +2,13 @@
 {% block content %}
 <h1>Relatório de Lucro</h1>
 
-<form method="GET" class="filters">
-  <div>
-    <label>Data inicial</label>
-    <input type="date" name="data_ini" value="{{ data_ini or '' }}">
-  </div>
-  <div>
-    <label>Data final</label>
-    <input type="date" name="data_fim" value="{{ data_fim or '' }}">
-  </div>
-  <div>
-    <button type="submit" class="btn btn-primary">Filtrar</button>
-  </div>
-  <div style="flex:1;"></div>
-  <div>
-    <span class="small">
-      Imposto: {{ '%.2f'|format(imposto_percent) }}% |
-      Despesas: {{ '%.2f'|format(despesas_percent) }}%
-    </span>
-  </div>
+<form method="get" style="margin-bottom: 16px;">
+  <label>Data início</label>
+  <input type="date" name="data_inicio" value="{{ data_inicio }}">
+  <label>Data fim</label>
+  <input type="date" name="data_fim" value="{{ data_fim }}">
+  <button type="submit" class="btn btn-primary">Filtrar</button>
+  <a href="{{ url_for('relatorio_lucro') }}" class="btn btn-link">Limpar</a>
 </form>
 
 <table>
