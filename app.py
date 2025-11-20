@@ -437,6 +437,7 @@ def lista_vendas():
             vendas.c.quantidade,
             vendas.c.preco_venda_unitario,
             vendas.c.receita_total,
+            vendas.c.custo_total,
             vendas.c.margem_contribuicao,
             vendas.c.origem,
             vendas.c.numero_venda_ml,
@@ -444,7 +445,7 @@ def lista_vendas():
             produtos.c.nome,
         ).select_from(vendas.join(produtos))
 
-        # Filtros por data (data_venda gravada em ISO: 2025-11-20T00:00:00)
+        # Filtros por data (data_venda em ISO: 2025-11-20T00:00:00)
         if data_inicio:
             query_vendas = query_vendas.where(vendas.c.data_venda >= data_inicio)
         if data_fim:
@@ -472,6 +473,29 @@ def lista_vendas():
             select(produtos.c.id, produtos.c.nome).order_by(produtos.c.nome)
         ).mappings().all()
 
+    # --------- Cálculo dos totais da lista de vendas ----------
+    totais = {
+        "qtd": 0.0,
+        "receita": 0.0,
+        "custo": 0.0,
+        "margem": 0.0,
+        "comissao": 0.0,  # comissão estimada
+    }
+
+    for v in vendas_rows:
+        qtd = float(v["quantidade"] or 0)
+        receita = float(v["receita_total"] or 0)
+        custo = float(v["custo_total"] or 0)
+        margem = float(v["margem_contribuicao"] or 0)
+
+        comissao_est = max(0.0, (receita - custo) - margem)
+
+        totais["qtd"] += qtd
+        totais["receita"] += receita
+        totais["custo"] += custo
+        totais["margem"] += margem
+        totais["comissao"] += comissao_est
+
     return render_template(
         "vendas.html",
         vendas=vendas_rows,
@@ -479,6 +503,7 @@ def lista_vendas():
         produtos=produtos_rows,
         data_inicio=data_inicio,
         data_fim=data_fim,
+        totais=totais,
     )
 
 
