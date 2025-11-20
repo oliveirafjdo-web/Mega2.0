@@ -1,1 +1,170 @@
-<html><body>teste vendas</body></html>
+{% extends "base.html" %}
+{% block content %}
+<h1>Vendas</h1>
+
+{# ----------------- CARD DE FILTRO POR DATA ----------------- #}
+<div class="filter-card">
+  <div class="filter-card-header">Filtro por data</div>
+  <form method="get">
+    <div class="filter-row">
+      <div class="filter-field">
+        <label>Data início</label>
+        <input type="date" name="data_inicio" value="{{ data_inicio }}">
+      </div>
+      <div class="filter-field">
+        <label>Data fim</label>
+        <input type="date" name="data_fim" value="{{ data_fim }}">
+      </div>
+      <div class="filter-actions">
+        <button type="submit" class="btn btn-primary">Filtrar</button>
+        <a href="{{ url_for('lista_vendas') }}" class="btn btn-link">Limpar</a>
+      </div>
+    </div>
+  </form>
+</div>
+
+{# ----------------- RESUMO DE TOTAIS ----------------- #}
+<div class="totais-resumo">
+  <div class="card-total">
+    <span>Total vendido (Qtd)</span>
+    <strong>{{ totais.qtd|int }}</strong>
+  </div>
+  <div class="card-total">
+    <span>Receita total</span>
+    <strong>R$ {{ '%.2f'|format(totais.receita) }}</strong>
+  </div>
+  <div class="card-total">
+    <span>Custo total</span>
+    <strong>R$ {{ '%.2f'|format(totais.custo) }}</strong>
+  </div>
+  <div class="card-total">
+    <span>Margem total</span>
+    <strong>R$ {{ '%.2f'|format(totais.margem) }}</strong>
+  </div>
+  <div class="card-total">
+    <span>Comissão total (est.)</span>
+    <strong>R$ {{ '%.2f'|format(totais.comissao) }}</strong>
+  </div>
+</div>
+
+{# ----------------- FORMULÁRIO DE VENDA MANUAL ----------------- #}
+<h2>Registrar venda manual</h2>
+<div class="card" style="margin-bottom: 20px;">
+  <form method="post" action="{{ url_for('criar_venda_manual') }}">
+    <div class="form-group">
+      <label>Produto</label>
+      <select name="produto_id" required>
+        {% for p in produtos %}
+          <option value="{{ p.id }}">{{ p.nome }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Quantidade</label>
+      <input type="number" name="quantidade" min="1" step="1" required>
+    </div>
+    <div class="form-group">
+      <label>Preço unitário (R$)</label>
+      <input type="number" name="preco_venda_unitario" step="0.01" required>
+    </div>
+    <div class="form-group">
+      <label>Data da venda</label>
+      <input type="date" name="data_venda">
+      <p class="small">Se em branco, será usada a data/hora atual.</p>
+    </div>
+    <button type="submit" class="btn btn-primary">Lançar venda</button>
+  </form>
+</div>
+
+{# ----------------- LISTA DE VENDAS ----------------- #}
+<h2>Lista de vendas</h2>
+<table>
+  <thead>
+    <tr>
+      <th>Data</th>
+      <th>Produto</th>
+      <th>Origem</th>
+      <th>Qtd</th>
+      <th>Preço unitário</th>
+      <th>Receita</th>
+      <th>Custo</th>
+      <th>Margem</th>
+      <th>Comissão (est.)</th>
+      <th>Ações</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for v in vendas %}
+    <tr>
+      <td>{{ v.data_venda }}</td>
+      <td>{{ v.nome }}</td>
+      <td>{{ v.origem }}</td>
+      <td>{{ v.quantidade }}</td>
+      <td>R$ {{ '%.2f'|format(v.preco_venda_unitario or 0) }}</td>
+      <td>R$ {{ '%.2f'|format(v.receita_total or 0) }}</td>
+      <td>R$ {{ '%.2f'|format(v.custo_total or 0) }}</td>
+      <td>R$ {{ '%.2f'|format(v.margem_contribuicao or 0) }}</td>
+      <td>
+        {% set receita = v.receita_total or 0 %}
+        {% set custo = v.custo_total or 0 %}
+        {% set margem = v.margem_contribuicao or 0 %}
+        {% set comissao_est = (receita - custo) - margem %}
+        R$ {{ '%.2f'|format(comissao_est if comissao_est > 0 else 0) }}
+      </td>
+      <td>
+        <a href="{{ url_for('editar_venda', venda_id=v.id) }}" class="btn btn-link">Editar</a>
+        <form method="post"
+              action="{{ url_for('excluir_venda', venda_id=v.id) }}"
+              class="inline"
+              onsubmit="return confirm('Confirma excluir esta venda?');">
+          <button type="submit" class="btn btn-danger">Excluir</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+  <tfoot>
+    <tr>
+      <th colspan="3" style="text-align:right;">Totais:</th>
+      <th>{{ totais.qtd|int }}</th>
+      <th></th>
+      <th>R$ {{ '%.2f'|format(totais.receita) }}</th>
+      <th>R$ {{ '%.2f'|format(totais.custo) }}</th>
+      <th>R$ {{ '%.2f'|format(totais.margem) }}</th>
+      <th>R$ {{ '%.2f'|format(totais.comissao) }}</th>
+      <th></th>
+    </tr>
+  </tfoot>
+</table>
+
+{# ----------------- LOTES DE IMPORTAÇÃO ----------------- #}
+<h2>Lotes de importação</h2>
+<table>
+  <thead>
+    <tr>
+      <th>Lote</th>
+      <th>Qtd. vendas</th>
+      <th>Receita do lote</th>
+      <th>Ações</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for lote in lotes %}
+    <tr>
+      <td>{{ lote.lote_importacao }}</td>
+      <td>{{ lote.qtd_vendas }}</td>
+      <td>R$ {{ '%.2f'|format(lote.receita_lote or 0) }}</td>
+      <td>
+        <form method="post"
+              action="{{ url_for('excluir_lote_vendas', lote_id=lote.lote_importacao) }}"
+              class="inline"
+              onsubmit="return confirm('Confirma excluir todas as vendas deste lote?');">
+          <button type="submit" class="btn btn-danger">Excluir lote</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+{% endblock %}
