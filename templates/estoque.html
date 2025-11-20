@@ -1,54 +1,90 @@
 {% extends "base.html" %}
+
 {% block content %}
-<h1>Estoque</h1>
+<h1>Estoque – Previsão e Reposição</h1>
+
+<p class="text-muted">
+    *Cálculo baseado nos últimos {{ janela_dias }} dias de venda · Estoque mínimo desejado: {{ dias_minimos }} dias*
+</p>
 
 <table>
-  <thead>
-    <tr>
-      <th>ID</th>
-      <th>Produto</th>
-      <th>SKU</th>
-      <th>Estoque Atual</th>
-      <th>Custo Unitário</th>
-    </tr>
-  </thead>
-  <tbody>
-  {% for p in produtos %}
-    <tr>
-      <td>{{ p.id }}</td>
-      <td>{{ p.nome }}</td>
-      <td>{{ p.sku }}</td>
-      <td>{{ p.estoque_atual }}</td>
-      <td>R$ {{ '%.2f'|format(p.custo_unitario) }}</td>
-    </tr>
-  {% endfor %}
-  </tbody>
+    <thead>
+        <tr>
+            <th>Produto</th>
+            <th>SKU</th>
+            <th>Estoque Atual</th>
+            <th>Média Diária</th>
+            <th>Média Mensal</th>
+            <th>Dias de Cobertura</th>
+            <th>Status</th>
+        </tr>
+    </thead>
+
+    <tbody>
+        {% for p in produtos %}
+        <tr>
+            <td>{{ p.nome }}</td>
+            <td>{{ p.sku }}</td>
+            <td>{{ p.estoque_atual }}</td>
+
+            <td>
+                {% if p.media_diaria %}
+                    {{ "%.2f"|format(p.media_diaria) }}
+                {% else %}
+                    0
+                {% endif %}
+            </td>
+
+            <td>
+                {% if p.media_mensal %}
+                    {{ "%.2f"|format(p.media_mensal) }}
+                {% else %}
+                    0
+                {% endif %}
+            </td>
+
+            <td>
+                {% if p.dias_cobertura %}
+                    {{ "%.1f"|format(p.dias_cobertura) }}
+                {% else %}
+                    0
+                {% endif %}
+            </td>
+
+            <td>
+                {% if p.precisa_repor %}
+                    <span style="color:red; font-weight:bold;">Repor urgente</span>
+                {% else %}
+                    <span style="color:green; font-weight:bold;">OK</span>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
 </table>
 
-<h2>Ajustar Estoque</h2>
-<form method="POST" action="{{ url_for('ajuste_estoque') }}">
-  <label>Produto</label>
-  <select name="produto_id" required>
-    {% for p in produtos %}
-      <option value="{{ p.id }}">{{ p.nome }} (Estoque: {{ p.estoque_atual }})</option>
-    {% endfor %}
-  </select>
+<style>
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 20px;
+        background: white;
+    }
 
-  <label>Tipo</label>
-  <select name="tipo" required>
-    <option value="entrada">Entrada</option>
-    <option value="saida">Saída</option>
-  </select>
+    th, td {
+        padding: 10px;
+        border-bottom: 1px solid #ddd;
+        text-align: left;
+    }
 
-  <label>Quantidade</label>
-  <input type="number" name="quantidade" min="1" required>
+    th {
+        background: #f2f2f2;
+        font-weight: bold;
+    }
 
-  <label>Custo unitário (opcional para atualizar)</label>
-  <input type="number" step="0.01" name="custo_unitario">
+    tr:hover {
+        background: #f9f9f9;
+    }
+</style>
 
-  <label>Observação</label>
-  <textarea name="observacao"></textarea>
-
-  <button type="submit" class="btn btn-primary">Registrar ajuste</button>
-</form>
 {% endblock %}
