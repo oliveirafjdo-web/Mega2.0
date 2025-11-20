@@ -12,28 +12,54 @@
     <h2>{{ estoque_total }}</h2>
   </div>
   <div class="card">
-    <div>Receita Total</div>
+    <div>Receita Bruta Total</div>
     <h2>R$ {{ '%.2f'|format(receita_total) }}</h2>
   </div>
   <div class="card">
-    <div>Lucro Líquido Total</div>
-    <h2>R$ {{ '%.2f'|format(lucro_total) }}</h2>
+    <div>Receita Líquida Total</div>
+    <h2>R$ {{ '%.2f'|format(receita_liquida_total) }}</h2>
+  </div>
+</div>
+
+<div class="card-grid">
+  <div class="card">
+    <div>Custo Total dos Produtos</div>
+    <h2>R$ {{ '%.2f'|format(custo_total) }}</h2>
   </div>
   <div class="card">
-    <div>Margem média</div>
+    <div>Comissão total (estimada)</div>
+    <h2>R$ {{ '%.2f'|format(comissao_total) }}</h2>
+  </div>
+  <div class="card">
+    <div>Imposto Total</div>
+    <h2>R$ {{ '%.2f'|format(imposto_total) }}</h2>
+  </div>
+  <div class="card">
+    <div>Despesas Totais</div>
+    <h2>R$ {{ '%.2f'|format(despesas_total) }}</h2>
+  </div>
+</div>
+
+<div class="card-grid">
+  <div class="card">
+    <div>Lucro Líquido Total</div>
+    <h2>R$ {{ '%.2f'|format(lucro_liquido_total) }}</h2>
+  </div>
+  <div class="card">
+    <div>Margem Líquida</div>
+    <h2>{{ '%.2f'|format(margem_liquida_percent) }}%</h2>
+  </div>
+  <div class="card">
+    <div>Margem média (contribuição)</div>
     <h2>{{ '%.2f'|format(margem_media) }}%</h2>
   </div>
   <div class="card">
     <div>Ticket médio</div>
     <h2>R$ {{ '%.2f'|format(ticket_medio) }}</h2>
   </div>
-  <div class="card">
-    <div>Comissão total (estimada)</div>
-    <h2>R$ {{ '%.2f'|format(comissao_total) }}</h2>
-  </div>
 </div>
 
-<div class="card-grid" style="margin-top:16px;">
+<div class="card-grid">
   <div class="card">
     <h3>Produto mais vendido</h3>
     {% if produto_mais_vendido %}
@@ -59,15 +85,6 @@
       <small>Margem: R$ {{ '%.2f'|format(produto_pior_margem[1]) }}</small>
     {% else %}
       <small>Sem vendas ainda.</small>
-    {% endif %}
-  </div>
-  <div class="card">
-    <h3>Configurações</h3>
-    {% if cfg %}
-      <div class="small">Imposto: {{ '%.2f'|format(cfg.imposto_percent) }}%</div>
-      <div class="small">Despesas: {{ '%.2f'|format(cfg.despesas_percent) }}%</div>
-    {% else %}
-      <div class="small">Sem configurações.</div>
     {% endif %}
   </div>
 </div>
