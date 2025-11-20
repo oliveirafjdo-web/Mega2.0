@@ -305,21 +305,14 @@ def dashboard():
             else 0.0
         )
 
-        # Métricas que você já tinha
-        margem_media = conn.execute(
-            select(
-                func.coalesce(
-                    func.avg(
-                        func.nullif(
-                            (vendas.c.margem_contribuicao / vendas.c.receita_total) * 100,
-                            0
-                        )
-                    ),
-                    0
-                )
-            )
-        ).scalar_one()
+        # Margem média de contribuição (também calculada em Python, sem dividir por 0)
+        margem_media = (
+            (margem_total / receita_total) * 100.0
+            if receita_total > 0
+            else 0.0
+        )
 
+        # Ticket médio
         ticket_medio = conn.execute(
             select(func.coalesce(func.avg(vendas.c.preco_venda_unitario), 0))
         ).scalar_one()
