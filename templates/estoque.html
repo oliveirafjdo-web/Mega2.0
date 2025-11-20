@@ -1,91 +1,110 @@
 {% extends "base.html" %}
 {% block content %}
-<h1>Estoque</h1>
+<div class="container mt-4">
 
-<p class="text-muted">
-  Médias calculadas com base nos últimos {{ janela_dias }} dias de vendas.
-  Estoque mínimo desejado: {{ dias_minimos }} dias de cobertura.
-</p>
+    <h2 class="mb-4">Estoque Inteligente</h2>
 
-<h2>Visão de Estoque e Giro</h2>
-<table>
-  <thead>
-    <tr>
-      <th>Produto</th>
-      <th>SKU</th>
-      <th>Estoque atual</th>
-      <th>Média diária<br>(últ. {{ janela_dias }} dias)</th>
-      <th>Média mensal<br>(estimada)</th>
-      <th>Dias de cobertura</th>
-      <th>Situação</th>
-    </tr>
-  </thead>
-  <tbody>
-    {% for p in produtos %}
-    <tr class="{% if p.precisa_repor %}estoque-alerta{% endif %}">
-      <td>{{ p.nome }}</td>
-      <td>{{ p.sku }}</td>
-      <td>{{ p.estoque_atual|int }}</td>
-      <td>{{ '%.2f'|format(p.media_diaria) }}</td>
-      <td>{{ '%.2f'|format(p.media_mensal) }}</td>
-      <td>
-        {% if p.dias_cobertura is none %}
-          —
-        {% else %}
-          {{ '%.1f'|format(p.dias_cobertura) }} dias
-        {% endif %}
-      </td>
-      <td>
-        {% if p.dias_cobertura is none %}
-          <span class="badge badge-neutral">Sem vendas recentes</span>
-        {% elif p.precisa_repor %}
-          <span class="badge badge-danger">Repor estoque</span>
-        {% else %}
-          <span class="badge badge-ok">OK</span>
-        {% endif %}
-      </td>
-    </tr>
-    {% endfor %}
-  </tbody>
-</table>
+    <div class="alert alert-info">
+        Janela analisada: <b>{{ janela_dias }} dias</b> — Estoque mínimo recomendado: <b>{{ dias_minimos }} dias</b>
+    </div>
 
-<br>
+    <table class="table table-striped table-bordered table-hover align-middle">
+        <thead class="table-dark">
+            <tr>
+                <th>Produto</th>
+                <th>SKU</th>
+                <th>Estoque Atual</th>
+                <th>Média Diária</th>
+                <th>Média Mensal</th>
+                <th>Dias de Cobertura</th>
+                <th>Reposição</th>
+                <th style="width: 160px;">Ajustar</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for p in produtos %}
+            <tr
+                {% if p.precisa_repor %}
+                    class="table-danger"
+                {% endif %}
+            >
+                <td>{{ p.nome }}</td>
+                <td>{{ p.sku }}</td>
+                <td><b>{{ p.estoque_atual }}</b></td>
+                <td>{{ "%.2f"|format(p.media_diaria) }}</td>
+                <td>{{ "%.2f"|format(p.media_mensal) }}</td>
+                <td>
+                    {% if p.dias_cobertura %}
+                        {{ "%.1f"|format(p.dias_cobertura) }} dias
+                    {% else %}
+                        <i>Sem vendas recentes</i>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if p.precisa_repor %}
+                        <span class="badge bg-danger">Repor</span>
+                    {% else %}
+                        <span class="badge bg-success">OK</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <button class="btn btn-sm btn-primary" data-bs-toggle="modal"
+                            data-bs-target="#ajuste{{ p.id }}">
+                        Ajustar
+                    </button>
+                </td>
+            </tr>
 
-<h2>Ajustar estoque</h2>
-<form method="POST" action="{{ url_for('ajuste_estoque') }}">
-  <div class="form-group">
-    <label for="produto_id">Produto</label>
-    <select name="produto_id" id="produto_id">
-      {% for p in produtos %}
-      <option value="{{ p.id }}">{{ p.nome }} ({{ p.sku }})</option>
-      {% endfor %}
-    </select>
-  </div>
+            <!-- Modal de Ajuste -->
+            <div class="modal fade" id="ajuste{{ p.id }}" tabindex="-1">
+                <div class="modal-dialog">
+                    <form method="POST" action="{{ url_for('ajuste_estoque') }}" class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Ajuste de Estoque — {{ p.nome }}</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
 
-  <div class="form-group">
-    <label for="tipo">Tipo de ajuste</label>
-    <select name="tipo" id="tipo">
-      <option value="entrada">Entrada</option>
-      <option value="saida">Saída</option>
-    </select>
-  </div>
+                        <div class="modal-body">
 
-  <div class="form-group">
-    <label for="quantidade">Quantidade</label>
-    <input type="number" name="quantidade" id="quantidade" min="1" step="1" required>
-  </div>
+                            <input type="hidden" name="produto_id" value="{{ p.id }}">
 
-  <div class="form-group">
-    <label for="custo_unitario">Custo unitário (opcional)</label>
-    <input type="number" step="0.01" name="custo_unitario" id="custo_unitario">
-    <p class="small">Se informado em uma entrada, atualiza o custo do produto.</p>
-  </div>
+                            <div class="mb-3">
+                                <label class="form-label">Tipo de ajuste</label>
+                                <select class="form-select" name="tipo">
+                                    <option value="entrada">Entrada</option>
+                                    <option value="saida">Saída</option>
+                                </select>
+                            </div>
 
-  <div class="form-group">
-    <label for="observacao">Observação</label>
-    <textarea name="observacao" id="observacao" rows="2"></textarea>
-  </div>
+                            <div class="mb-3">
+                                <label class="form-label">Quantidade</label>
+                                <input type="number" name="quantidade" min="1" class="form-control" required>
+                            </div>
 
-  <button type="submit" class="btn btn-primary">Salvar ajuste</button>
-</form>
+                            <div class="mb-3">
+                                <label class="form-label">Novo custo unitário (opcional)</label>
+                                <input type="number" step="0.01" class="form-control" name="custo_unitario"
+                                       placeholder="Manter custo atual">
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">Observação</label>
+                                <textarea class="form-control" name="observacao"></textarea>
+                            </div>
+
+                        </div>
+
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                            <button type="submit" class="btn btn-primary">Salvar Ajuste</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            {% endfor %}
+        </tbody>
+    </table>
+
+</div>
 {% endblock %}
