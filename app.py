@@ -426,40 +426,60 @@ def excluir_produto(produto_id):
 # ---------------- VENDAS ----------------
 @app.route("/vendas")
 def lista_vendas():
-    with engine.connect() as conn:
-        vendas_rows = conn.execute(
-            select(
-                vendas.c.id,
-                vendas.c.data_venda,
-                vendas.c.quantidade,
-                vendas.c.preco_venda_unitario,
-                vendas.c.receita_total,
-                vendas.c.margem_contribuicao,
-                vendas.c.origem,
-                vendas.c.numero_venda_ml,
-                vendas.c.lote_importacao,
-                produtos.c.nome,
-            )
-            .select_from(vendas.join(produtos))
-            .order_by(vendas.c.data_venda.desc(), vendas.c.id.desc())
-        ).mappings().all()
+    data_inicio = request.args.get("data_inicio") or ""
+    data_fim = request.args.get("data_fim") or ""
 
-        lotes = conn.execute(
-            select(
-                vendas.c.lote_importacao.label("lote_importacao"),
-                func.count().label("qtd_vendas"),
-                func.coalesce(func.sum(vendas.c.receita_total), 0).label("receita_lote"),
-            )
-            .where(vendas.c.lote_importacao.isnot(None))
-            .group_by(vendas.c.lote_importacao)
-            .order_by(vendas.c.lote_importacao.desc())
-        ).mappings().all()
+    with engine.connect() as conn:
+        # Query base das vendas
+        query_vendas = select(
+            vendas.c.id,
+            vendas.c.data_venda,
+            vendas.c.quantidade,
+            vendas.c.preco_venda_unitario,
+            vendas.c.receita_total,
+            vendas.c.margem_contribuicao,
+            vendas.c.origem,
+            vendas.c.numero_venda_ml,
+            vendas.c.lote_importacao,
+            produtos.c.nome,
+        ).select_from(vendas.join(produtos))
+
+        # Filtros por data (data_venda gravada em ISO: 2025-11-20T00:00:00)
+        if data_inicio:
+            query_vendas = query_vendas.where(vendas.c.data_venda >= data_inicio)
+        if data_fim:
+            query_vendas = query_vendas.where(vendas.c.data_venda <= data_fim + "T23:59:59")
+
+        query_vendas = query_vendas.order_by(vendas.c.data_venda.desc(), vendas.c.id.desc())
+        vendas_rows = conn.execute(query_vendas).mappings().all()
+
+        # Lotes (respeitando os mesmos filtros)
+        query_lotes = select(
+            vendas.c.lote_importacao.label("lote_importacao"),
+            func.count().label("qtd_vendas"),
+            func.coalesce(func.sum(vendas.c.receita_total), 0).label("receita_lote"),
+        ).where(vendas.c.lote_importacao.isnot(None))
+
+        if data_inicio:
+            query_lotes = query_lotes.where(vendas.c.data_venda >= data_inicio)
+        if data_fim:
+            query_lotes = query_lotes.where(vendas.c.data_venda <= data_fim + "T23:59:59")
+
+        query_lotes = query_lotes.group_by(vendas.c.lote_importacao).order_by(vendas.c.lote_importacao.desc())
+        lotes = conn.execute(query_lotes).mappings().all()
 
         produtos_rows = conn.execute(
             select(produtos.c.id, produtos.c.nome).order_by(produtos.c.nome)
         ).mappings().all()
 
-    return render_template("vendas.html", vendas=vendas_rows, lotes=lotes, produtos=produtos_rows)
+    return render_template(
+        "vendas.html",
+        vendas=vendas_rows,
+        lotes=lotes,
+        produtos=produtos_rows,
+        data_inicio=data_inicio,
+        data_fim=data_fim,
+    )
 
 
 @app.route("/vendas/manual", methods=["POST"])
