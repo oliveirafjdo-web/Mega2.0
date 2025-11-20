@@ -713,7 +713,21 @@ def exportar_template():
 # ---------------- ESTOQUE / AJUSTES ----------------
 @app.route("/estoque")
 def estoque_view():
+    """Visão de estoque com médias de venda e previsão de cobertura.
+
+    - média_diaria: média de unidades vendidas por dia nos últimos N dias
+    - média_mensal: média_diaria * 30
+    - dias_cobertura: estoque_atual / média_diaria
+    - precisa_repor: True se dias_cobertura < dias_minimos
+    """
+
+    JANELA_DIAS = 60      # quantos dias olhar pra trás nas vendas
+    DIAS_MINIMOS = 30     # estoque mínimo desejado em dias
+
+    hoje = datetime.now()
+
     with engine.connect() as conn:
+        # Produtos
         produtos_rows = conn.execute(
             select(
                 produtos.c.id,
@@ -723,7 +737,81 @@ def estoque_view():
                 produtos.c.custo_unitario,
             ).order_by(produtos.c.nome)
         ).mappings().all()
-    return render_template("estoque.html", produtos=produtos_rows)
+
+        # Vendas (só o necessário)
+        vendas_rows = conn.execute(
+            select(
+                vendas.c.produto_id,
+                vendas.c.data_venda,
+                vendas.c.quantidade,
+            )
+        ).mappings().all()
+
+    # Soma de vendas por produto dentro da janela (últimos JANELA_DIAS)
+    vendas_por_produto = {}
+
+    for v in vendas_rows:
+        pid = v["produto_id"]
+        qtd = int(v["quantidade"] or 0)
+        data_raw = v["data_venda"]
+
+        if not data_raw:
+            continue
+
+        # tenta interpretar a data
+        dt = parse_data_venda(data_raw)
+        if dt is None:
+            try:
+                dt = datetime.fromisoformat(str(data_raw))
+            except Exception:
+                continue
+
+        # só considera vendas dentro da janela
+        delta = hoje - dt
+        if delta.days < 0 or delta.days > JANELA_DIAS:
+            continue
+
+        vendas_por_produto[pid] = vendas_por_produto.get(pid, 0) + qtd
+
+    # Monta lista enriquecida de produtos
+    produtos_enriquecidos = []
+    for p in produtos_rows:
+        pid = p["id"]
+        estoque_atual = float(p["estoque_atual"] or 0)
+        qtd_periodo = float(vendas_por_produto.get(pid, 0))
+
+        media_diaria = qtd_periodo / JANELA_DIAS if JANELA_DIAS > 0 else 0.0
+        media_mensal = media_diaria * 30.0
+
+        if media_diaria > 0:
+            dias_cobertura = estoque_atual / media_diaria
+        else:
+            dias_cobertura = None  # sem vendas recentes, não dá pra estimar
+
+        precisa_repor = (
+            dias_cobertura is not None and dias_cobertura < DIAS_MINIMOS
+        )
+
+        produtos_enriquecidos.append(
+            {
+                "id": pid,
+                "nome": p["nome"],
+                "sku": p["sku"],
+                "estoque_atual": estoque_atual,
+                "custo_unitario": float(p["custo_unitario"] or 0),
+                "media_diaria": media_diaria,
+                "media_mensal": media_mensal,
+                "dias_cobertura": dias_cobertura,
+                "precisa_repor": precisa_repor,
+            }
+        )
+
+    return render_template(
+        "estoque.html",
+        produtos=produtos_enriquecidos,
+        janela_dias=JANELA_DIAS,
+        dias_minimos=DIAS_MINIMOS,
+    )
 
 
 @app.route("/estoque/ajuste", methods=["POST"])
