@@ -306,7 +306,7 @@ def dashboard():
         )
 
         # Margem média de contribuição (também calculada em Python, sem dividir por 0)
-        margem_media = (
+        margem_= (
             (margem_total / receita_total) * 100.0
             if receita_total > 0
             else 0.0
@@ -721,8 +721,8 @@ def estoque_view():
     - precisa_repor: True se dias_cobertura < dias_minimos
     """
 
-    JANELA_DIAS = 60      # quantos dias olhar pra trás nas vendas
-    DIAS_MINIMOS = 30     # estoque mínimo desejado em dias
+    JANELA_DIAS = 30      # quantos dias olhar pra trás nas vendas
+    DIAS_MINIMOS = 15     # estoque mínimo desejado em dias
 
     hoje = datetime.now()
 
