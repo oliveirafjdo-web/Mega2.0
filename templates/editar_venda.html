@@ -1,34 +1,72 @@
 {% extends "base.html" %}
-{% block title %}Editar venda · MetriFy{% endblock %}
-{% block header_title %}Editar venda #{{ venda.id }}{% endblock %}
+
+{% block title %}Editar venda • MetriFy{% endblock %}
+{% block page_icon %}<i class="bi bi-pencil-square text-primary"></i>{% endblock %}
+{% block page_title %}Editar venda #{{ venda.id }}{% endblock %}
 
 {% block content %}
-<div class="card-soft">
-  <form method="post" class="row g-3">
-    <div class="col-12 col-md-6">
-      <label class="form-label small mb-1">Produto</label>
-      <input type="text" class="form-control" value="{{ venda.nome }}" disabled>
+<div class="card-glass">
+  <div class="card-glass-header">
+    <div class="card-glass-title">
+      <i class="bi bi-receipt"></i> Ajustar dados da venda
     </div>
-    <div class="col-6 col-md-3">
-      <label class="form-label small mb-1">Quantidade</label>
-      <input type="number" name="quantidade" class="form-control" min="1" value="{{ venda.quantidade }}" required>
-    </div>
-    <div class="col-6 col-md-3">
-      <label class="form-label small mb-1">Custo total (R$)</label>
-      <input type="number" step="0.01" name="custo_total" class="form-control" value="{{ venda.custo_total or 0 }}" required>
-    </div>
-    <div class="col-6 col-md-3">
-      <label class="form-label small mb-1">Preço unitário (R$)</label>
-      <input type="number" step="0.01" name="preco_venda_unitario" class="form-control" value="{{ venda.preco_venda_unitario or 0 }}" required>
-    </div>
-    <div class="col-6 col-md-3">
-      <label class="form-label small mb-1">Data da venda</label>
-      <input type="text" class="form-control" value="{{ venda.data_venda or '-' }}" disabled>
+  </div>
+
+  <form method="post">
+    <div class="row g-3">
+      <div class="col-12 col-md-6">
+        <label class="form-label">Produto</label>
+        <input type="text" class="form-control" value="{{ venda.nome }}" disabled>
+      </div>
+      <div class="col-12 col-md-3">
+        <label class="form-label" for="quantidade">Quantidade</label>
+        <input
+          type="number"
+          min="1"
+          class="form-control"
+          id="quantidade"
+          name="quantidade"
+          value="{{ venda.quantidade }}"
+          required
+        >
+      </div>
+      <div class="col-12 col-md-3">
+        <label class="form-label" for="preco_venda_unitario">Preço unitário (R$)</label>
+        <input
+          type="number"
+          step="0.01"
+          class="form-control"
+          id="preco_venda_unitario"
+          name="preco_venda_unitario"
+          value="{{ '%.2f'|format(venda.preco_venda_unitario) }}"
+          required
+        >
+      </div>
+      <div class="col-12 col-md-3">
+        <label class="form-label" for="custo_total">Custo total (R$)</label>
+        <input
+          type="number"
+          step="0.01"
+          class="form-control"
+          id="custo_total"
+          name="custo_total"
+          value="{{ '%.2f'|format(venda.custo_total) }}"
+          required
+        >
+      </div>
+      <div class="col-12 col-md-4">
+        <label class="form-label">Data da venda</label>
+        <input type="text" class="form-control" value="{{ venda.data_venda }}" disabled>
+      </div>
     </div>
 
-    <div class="col-12 d-flex justify-content-between mt-2">
-      <a href="{{ url_for('lista_vendas') }}" class="btn btn-outline-light btn-sm">Voltar</a>
-      <button type="submit" class="btn btn-soft">Salvar alterações</button>
+    <div class="mt-3 d-flex gap-2">
+      <button type="submit" class="btn btn-primary">
+        <i class="bi bi-check2-circle"></i> Salvar alterações
+      </button>
+      <a href="{{ url_for('lista_vendas') }}" class="btn btn-outline-light">
+        <i class="bi bi-arrow-left"></i> Voltar
+      </a>
     </div>
   </form>
 </div>
