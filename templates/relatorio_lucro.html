@@ -1,94 +1,95 @@
 {% extends "base.html" %}
-{% block title %}Relatório de lucro · MetriFy{% endblock %}
-{% block header_title %}Relatório de lucro por produto{% endblock %}
+
+{% block title %}Relatório de Lucro • MetriFy{% endblock %}
+{% block page_icon %}<i class="bi bi-graph-up-arrow text-success"></i>{% endblock %}
+{% block page_title %}Relatório de Lucro por Produto{% endblock %}
 
 {% block content %}
-<div class="card-soft mb-3">
-  <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
-    <div>
-      <div class="metric-label">Margem líquida</div>
-      <div class="metric-sub">
-        Lucro líquido = Receita - Comissão ML - Custo - Imposto - Despesas gerais.
+<div class="card-glass mb-3">
+  <div class="card-glass-header">
+    <div class="card-glass-title">
+      <i class="bi bi-info-circle"></i> Parâmetros de cálculo
+    </div>
+  </div>
+  <div class="row g-3">
+    <div class="col-6 col-md-3">
+      <div class="stat-label">Imposto (%)</div>
+      <div class="stat-value">{{ '%.2f'|format(imposto_percent) }}%</div>
+      <div class="stat-sub">Aplicado sobre a receita</div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="stat-label">Despesas (%)</div>
+      <div class="stat-value">{{ '%.2f'|format(despesas_percent) }}%</div>
+      <div class="stat-sub">Aplicado sobre a receita</div>
+    </div>
+    <div class="col-12 col-md-6">
+      <div class="text-soft">
+        Margem líquida = Receita - Comissão ML - Custo - Impostos - Despesas.  
+        Comissão ML é estimada por produto a partir da diferença entre a margem de contribuição
+        registrada e (receita - custo).
       </div>
     </div>
-    <div class="d-flex gap-2 flex-wrap">
-      <span class="badge-soft">Imposto: {{ '%.2f'|format(imposto_percent) }}%</span>
-      <span class="badge-soft">Despesas: {{ '%.2f'|format(despesas_percent) }}%</span>
-    </div>
   </div>
 </div>
 
-<div class="card-soft mb-3">
-  <div class="row g-2">
-    <div class="col-6 col-md-2">
-      <div class="metric-sub">Qtd. total</div>
-      <div class="metric-value" style="font-size:16px;">{{ '%.0f'|format(totais.qtd) }}</div>
+<div class="card-glass">
+  <div class="card-glass-header">
+    <div class="card-glass-title">
+      <i class="bi bi-table"></i> Produtos ordenados pelo maior lucro líquido
     </div>
-    <div class="col-6 col-md-2">
-      <div class="metric-sub">Receita total</div>
-      <div class="metric-value" style="font-size:16px;">R$ {{ '%.2f'|format(totais.receita) }}</div>
-    </div>
-    <div class="col-6 col-md-2">
-      <div class="metric-sub">Custo total</div>
-      <div class="metric-value" style="font-size:16px;">R$ {{ '%.2f'|format(totais.custo) }}</div>
-    </div>
-    <div class="col-6 col-md-2">
-      <div class="metric-sub">Comissão ML</div>
-      <div class="metric-value" style="font-size:16px;">R$ {{ '%.2f'|format(totais.comissao) }}</div>
-    </div>
-    <div class="col-6 col-md-2">
-      <div class="metric-sub">Impostos</div>
-      <div class="metric-value" style="font-size:16px;">R$ {{ '%.2f'|format(totais.imposto) }}</div>
-    </div>
-    <div class="col-6 col-md-2">
-      <div class="metric-sub">Despesas</div>
-      <div class="metric-value" style="font-size:16px;">R$ {{ '%.2f'|format(totais.despesas) }}</div>
-    </div>
+    <span class="badge-soft">{{ linhas|length }} produtos</span>
   </div>
-  <div class="mt-2">
-    <div class="metric-sub">Lucro líquido total</div>
-    <div class="metric-value" style="font-size:18px;">R$ {{ '%.2f'|format(totais.margem_liquida) }}</div>
-  </div>
-</div>
 
-<div class="card-soft">
   <div class="table-responsive">
-    <table class="table table-sm table-dark-modern align-middle mb-0">
+    <table class="table table-sm align-middle mb-0">
       <thead>
         <tr>
           <th>Produto</th>
-          <th class="text-end">Qtd</th>
-          <th class="text-end">Receita</th>
-          <th class="text-end">Custo</th>
-          <th class="text-end">Comissão ML</th>
-          <th class="text-end">Imposto</th>
-          <th class="text-end">Despesas</th>
-          <th class="text-end">Lucro líquido</th>
-          <th class="text-end">% sobre receita</th>
+          <th class="text-end">Qtd.</th>
+          <th class="text-end">Receita (R$)</th>
+          <th class="text-end">Custo (R$)</th>
+          <th class="text-end">Comissão ML (R$)</th>
+          <th class="text-end">Impostos (R$)</th>
+          <th class="text-end">Despesas (R$)</th>
+          <th class="text-end">Lucro líquido (R$)</th>
         </tr>
       </thead>
       <tbody>
-        {% for l in linhas %}
-          {% set perc = (l.margem_liquida / l.receita * 100) if l.receita > 0 else 0 %}
-          <tr>
-            <td>{{ l.produto }}</td>
-            <td class="text-end">{{ '%.0f'|format(l.qtd) }}</td>
-            <td class="text-end">R$ {{ '%.2f'|format(l.receita) }}</td>
-            <td class="text-end">R$ {{ '%.2f'|format(l.custo) }}</td>
-            <td class="text-end">R$ {{ '%.2f'|format(l.comissao) }}</td>
-            <td class="text-end">R$ {{ '%.2f'|format(l.imposto) }}</td>
-            <td class="text-end">R$ {{ '%.2f'|format(l.despesas) }}</td>
-            <td class="text-end">R$ {{ '%.2f'|format(l.margem_liquida) }}</td>
-            <td class="text-end">
-              {{ '%.2f'|format(perc) }}%
-            </td>
-          </tr>
+        {% if linhas %}
+          {% for l in linhas %}
+            <tr>
+              <td>{{ l.produto }}</td>
+              <td class="text-end">{{ '%.0f'|format(l.qtd) }}</td>
+              <td class="text-end">R$ {{ '%.2f'|format(l.receita) }}</td>
+              <td class="text-end">R$ {{ '%.2f'|format(l.custo) }}</td>
+              <td class="text-end text-warning">R$ {{ '%.2f'|format(l.comissao) }}</td>
+              <td class="text-end">R$ {{ '%.2f'|format(l.imposto) }}</td>
+              <td class="text-end">R$ {{ '%.2f'|format(l.despesas) }}</td>
+              <td class="text-end fw-semibold text-success">R$ {{ '%.2f'|format(l.margem_liquida) }}</td>
+            </tr>
+          {% endfor %}
         {% else %}
           <tr>
-            <td colspan="9" class="text-center text-muted py-3">Nenhuma venda encontrada.</td>
+            <td colspan="8" class="text-center text-soft py-3">
+              Nenhuma venda encontrada para gerar o relatório.
+            </td>
           </tr>
-        {% endfor %}
+        {% endif %}
       </tbody>
+      {% if linhas %}
+        <tfoot>
+          <tr>
+            <th>Total</th>
+            <th class="text-end">{{ '%.0f'|format(totais.qtd) }}</th>
+            <th class="text-end">R$ {{ '%.2f'|format(totais.receita) }}</th>
+            <th class="text-end">R$ {{ '%.2f'|format(totais.custo) }}</th>
+            <th class="text-end text-warning">R$ {{ '%.2f'|format(totais.comissao) }}</th>
+            <th class="text-end">R$ {{ '%.2f'|format(totais.imposto) }}</th>
+            <th class="text-end">R$ {{ '%.2f'|format(totais.despesas) }}</th>
+            <th class="text-end fw-semibold text-success">R$ {{ '%.2f'|format(totais.margem_liquida) }}</th>
+          </tr>
+        </tfoot>
+      {% endif %}
     </table>
   </div>
 </div>
