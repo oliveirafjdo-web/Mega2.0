@@ -1,30 +1,115 @@
 {% extends "base.html" %}
+
 {% block content %}
-<h3 class="mb-4">Dashboard</h3>
-<div class="row">
-  <div class="col-md-3 mb-3">
-    <div class="card card-stat p-3">
-      <h6 class="text-muted">Receita Total</h6>
-      <h3>R$ {{ receita_total|round(2) }}</h3>
-    </div>
+<h1>Dashboard</h1>
+
+<div class="cards-grid">
+
+  <!-- LINHA 1 -->
+  <div class="card">
+    <h3>Total de Produtos</h3>
+    <p>{{ total_produtos }}</p>
   </div>
-  <div class="col-md-3 mb-3">
-    <div class="card card-stat p-3" style="border-left-color:#198754;">
-      <h6 class="text-muted">Lucro Líquido</h6>
-      <h3>R$ {{ lucro_liquido_total|round(2) }}</h3>
-    </div>
+
+  <div class="card">
+    <h3>Estoque Total</h3>
+    <p>{{ estoque_total }}</p>
   </div>
-  <div class="col-md-3 mb-3">
-    <div class="card card-stat p-3" style="border-left-color:#dc3545;">
-      <h6 class="text-muted">Comissão ML</h6>
-      <h3>R$ {{ comissao_total|round(2) }}</h3>
-    </div>
+
+  <div class="card">
+    <h3>Receita Bruta Total</h3>
+    <p>R$ {{ "%.2f"|format(receita_total) }}</p>
   </div>
-  <div class="col-md-3 mb-3">
-    <div class="card card-stat p-3" style="border-left-color:#6f42c1;">
-      <h6 class="text-muted">Estoque Total</h6>
-      <h3>{{ estoque_total }}</h3>
-    </div>
+
+  <div class="card">
+    <h3>Receita Líquida Total</h3>
+    <p>R$ {{ "%.2f"|format(receita_liquida_total) }}</p>
   </div>
+
+  <!-- LINHA 2 -->
+  <div class="card">
+    <h3>Custo Total de Produtos</h3>
+    <p>R$ {{ "%.2f"|format(custo_total) }}</p>
+  </div>
+
+  <div class="card">
+    <h3>Comissão Total (estimada)</h3>
+    <p>R$ {{ "%.2f"|format(comissao_total) }}</p>
+  </div>
+
+  <div class="card">
+    <h3>Imposto Total</h3>
+    <p>R$ {{ "%.2f"|format(imposto_total) }}</p>
+  </div>
+
+  <div class="card">
+    <h3>Despesas Totais</h3>
+    <p>R$ {{ "%.2f"|format(despesas_total) }}</p>
+  </div>
+
+  <!-- LINHA 3 -->
+  <div class="card destaque">
+    <h3>Lucro Líquido Total</h3>
+    <p>R$ {{ "%.2f"|format(lucro_liquido_total) }}</p>
+  </div>
+
+  <div class="card">
+    <h3>Margem Líquida</h3>
+    <p>{{ "%.2f"|format(margem_liquida_percent) }}%</p>
+  </div>
+
+  <div class="card">
+    <h3>Margem Média de Contribuição</h3>
+    <p>{{ "%.2f"|format(margem_media) }}%</p>
+  </div>
+
+  <div class="card">
+    <h3>Ticket Médio</h3>
+    <p>R$ {{ "%.2f"|format(ticket_medio) }}</p>
+  </div>
+
+  <!-- LINHA 4 - PRODUTOS DE DESTAQUE -->
+  <div class="card largo">
+    <h3>Produto mais vendido</h3>
+    {% if produto_mais_vendido %}
+      <p><strong>{{ produto_mais_vendido.nome }}</strong></p>
+      <p>Qtd: {{ produto_mais_vendido.qtd }}</p>
+    {% else %}
+      <p>Sem vendas registradas.</p>
+    {% endif %}
+  </div>
+
+  <div class="card largo">
+    <h3>Maior margem de contribuição</h3>
+    {% if produto_maior_lucro %}
+      <p><strong>{{ produto_maior_lucro.nome }}</strong></p>
+      <p>Margem: R$ {{ "%.2f"|format(produto_maior_lucro.lucro) }}</p>
+    {% else %}
+      <p>Sem vendas registradas.</p>
+    {% endif %}
+  </div>
+
+  <div class="card largo">
+    <h3>Pior margem de contribuição</h3>
+    {% if produto_pior_margem %}
+      <p><strong>{{ produto_pior_margem.nome }}</strong></p>
+      <p>Margem: R$ {{ "%.2f"|format(produto_pior_margem.margem) }}</p>
+    {% else %}
+      <p>Sem vendas registradas.</p>
+    {% endif %}
+  </div>
+
+  <!-- CONFIGURAÇÕES -->
+  <div class="card largo">
+    <h3>Configurações atuais</h3>
+    {% if cfg %}
+      <p>Imposto: {{ "%.2f"|format(cfg.imposto_percent or 0) }}%</p>
+      <p>Despesas: {{ "%.2f"|format(cfg.despesas_percent or 0) }}%</p>
+    {% else %}
+      <p>Imposto e despesas não configurados.</p>
+    {% endif %}
+  </div>
+
 </div>
+
 {% endblock %}

@@ -1,20 +1,347 @@
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
-<meta charset="UTF-8">
-<title>{{ title or "Metrify" }}</title>
-<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-<style>
-body { background:#f4f6f9; }
-.card-stat { border-left:5px solid #0d6efd; }
-</style>
+  <meta charset="UTF-8">
+  <title>{% block title %}Redutron ERP{% endblock %}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- Bootstrap via CDN -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #0f172a;
+      color: #e5e7eb;
+    }
+    .layout {
+      display: flex;
+      min-height: 100vh;
+    }
+    .sidebar {
+      width: 240px;
+      background: radial-gradient(circle at top left, #0ea5e9, #020617);
+      padding: 20px 16px;
+      color: #e5e7eb;
+      box-shadow: 4px 0 20px rgba(15,23,42,0.9);
+      position: sticky;
+      top: 0;
+      align-self: flex-start;
+      height: 100vh;
+    }
+    .sidebar-logo {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 24px;
+    }
+    .logo-circle {
+      width: 32px;
+      height: 32px;
+      border-radius: 999px;
+      background: conic-gradient(from 140deg, #22c55e, #0ea5e9, #6366f1, #22c55e);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 18px;
+      color: #0f172a;
+    }
+    .sidebar h2 {
+      font-size: 18px;
+      margin: 0;
+    }
+    .sidebar small {
+      font-size: 11px;
+      color: #cbd5f5;
+      opacity: .8;
+    }
+    .nav-group-title {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      margin: 18px 8px 6px;
+      color: #9ca3af;
+    }
+    .nav-link-custom {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      margin-bottom: 4px;
+      border-radius: 8px;
+      color: #e5e7eb;
+      font-size: 14px;
+      text-decoration: none;
+      transition: all .15s ease;
+    }
+    .nav-link-custom span.icon {
+      width: 18px;
+      text-align: center;
+      font-size: 14px;
+      opacity: .8;
+    }
+    .nav-link-custom:hover {
+      background: rgba(15,23,42,0.7);
+      transform: translateX(1px);
+    }
+    .nav-link-custom.active {
+      background: linear-gradient(90deg, #22c55e, #0ea5e9);
+      color: #0f172a;
+      font-weight: 600;
+    }
+    .nav-link-custom.active span.icon {
+      opacity: 1;
+    }
+    .content-wrapper {
+      flex: 1;
+      padding: 18px 22px;
+      background: radial-gradient(circle at top, rgba(56,189,248,0.08), transparent 55%);
+    }
+    .content-inner {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+    .topbar h1 {
+      font-size: 22px;
+      margin: 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .topbar h1 span.dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 999px;
+      background: #22c55e;
+      box-shadow: 0 0 10px rgba(34,197,94,0.9);
+    }
+    .card-soft {
+      background: radial-gradient(circle at top left, rgba(148,163,184,0.25), rgba(15,23,42,0.95));
+      border-radius: 14px;
+      padding: 14px 16px;
+      border: 1px solid rgba(148,163,184,0.25);
+      box-shadow: 0 18px 45px rgba(15,23,42,0.9);
+    }
+    .card-soft-compact {
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 1px solid rgba(148,163,184,0.2);
+      background: rgba(15,23,42,0.92);
+    }
+    .metric-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: .09em;
+      color: #9ca3af;
+      margin-bottom: 2px;
+    }
+    .metric-value {
+      font-size: 18px;
+      font-weight: 600;
+      color: #e5e7eb;
+    }
+    .metric-sub {
+      font-size: 11px;
+      color: #9ca3af;
+    }
+    table.table-dark-modern {
+      color: #e5e7eb;
+      font-size: 13px;
+      border-color: rgba(31,41,55,0.9);
+    }
+    table.table-dark-modern thead {
+      background: linear-gradient(90deg, rgba(15,23,42,0.95), rgba(15,23,42,0.9));
+      border-bottom: 1px solid rgba(148,163,184,0.35);
+    }
+    table.table-dark-modern thead th {
+      border-bottom-width: 1px;
+      border-color: rgba(51,65,85,0.9);
+      color: #9ca3af;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+    }
+    table.table-dark-modern tbody tr {
+      background: rgba(15,23,42,0.92);
+    }
+    table.table-dark-modern tbody tr:nth-child(even) {
+      background: rgba(15,23,42,0.75);
+    }
+    table.table-dark-modern tbody tr:hover {
+      background: rgba(30,64,175,0.7);
+    }
+    .badge-soft {
+      border-radius: 999px;
+      padding: 3px 8px;
+      font-size: 11px;
+      border: 1px solid rgba(148,163,184,0.55);
+      color: #e5e7eb;
+      background: rgba(15,23,42,0.9);
+    }
+    .badge-soft-success {
+      border-color: rgba(34,197,94,0.8);
+      color: #bbf7d0;
+      background: rgba(21,128,61,0.3);
+    }
+    .badge-soft-danger {
+      border-color: rgba(248,113,113,0.8);
+      color: #fecaca;
+      background: rgba(185,28,28,0.3);
+    }
+    .btn-soft {
+      border-radius: 999px;
+      border: 1px solid rgba(148,163,184,0.4);
+      font-size: 12px;
+      padding: 5px 12px;
+      color: #e5e7eb;
+      background: radial-gradient(circle at top, rgba(30,64,175,0.85), rgba(15,23,42,0.95));
+    }
+    .btn-soft:hover {
+      border-color: #38bdf8;
+      color: #e0f2fe;
+      background: linear-gradient(120deg, #0ea5e9, #6366f1);
+    }
+    .btn-soft-danger {
+      background: radial-gradient(circle at top, rgba(185,28,28,0.9), rgba(15,23,42,0.95));
+      border-color: rgba(248,113,113,0.7);
+    }
+    .btn-soft-danger:hover {
+      background: linear-gradient(120deg, #ef4444, #b91c1c);
+      color: #fee2e2;
+    }
+    .form-control,
+    .form-select {
+      font-size: 13px;
+      background-color: rgba(15,23,42,0.9);
+      border-color: rgba(148,163,184,0.5);
+      color: #e5e7eb;
+    }
+    .form-control:focus,
+    .form-select:focus {
+      border-color: #38bdf8;
+      box-shadow: 0 0 0 1px rgba(56,189,248,0.6);
+      background-color: rgba(15,23,42,0.95);
+      color: #e5e7eb;
+    }
+    .alert {
+      font-size: 13px;
+      border-radius: 999px;
+      padding: 6px 12px;
+    }
+    .alert-success {
+      background: rgba(22,163,74,0.1);
+      border-color: rgba(22,163,74,0.6);
+      color: #bbf7d0;
+    }
+    .alert-danger {
+      background: rgba(185,28,28,0.15);
+      border-color: rgba(185,28,28,0.75);
+      color: #fecaca;
+    }
+    .alert-info {
+      background: rgba(37,99,235,0.15);
+      border-color: rgba(37,99,235,0.75);
+      color: #bfdbfe;
+    }
+    @media (max-width: 900px) {
+      .layout {
+        flex-direction: column;
+      }
+      .sidebar {
+        width: 100%;
+        height: auto;
+        position: static;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+    }
+  </style>
 </head>
 <body>
-<nav class="navbar navbar-dark bg-dark px-3">
-  <a class="navbar-brand" href="/">Metrify</a>
-</nav>
-<div class="container py-4">
-  {% block content %}{% endblock %}
+<div class="layout">
+  <aside class="sidebar">
+    <div>
+      <div class="sidebar-logo">
+        <div class="logo-circle">M</div>
+        <div>
+          <h2>Redutron ERP</h2>
+          <small>Controle de vendas &amp; estoque</small>
+        </div>
+      </div>
+
+      <div class="nav-group-title">Principal</div>
+      <a href="{{ url_for('dashboard') }}" class="nav-link-custom {% if request.endpoint == 'dashboard' %}active{% endif %}">
+        <span class="icon">📊</span>
+        <span>Dashboard</span>
+      </a>
+      <a href="{{ url_for('lista_vendas') }}" class="nav-link-custom {% if request.endpoint == 'lista_vendas' %}active{% endif %}">
+        <span class="icon">💰</span>
+        <span>Vendas</span>
+      </a>
+      <a href="{{ url_for('relatorio_lucro') }}" class="nav-link-custom {% if request.endpoint == 'relatorio_lucro' %}active{% endif %}">
+        <span class="icon">📈</span>
+        <span>Relatório de Lucro</span>
+      </a>
+
+      <div class="nav-group-title">Catálogo</div>
+      <a href="{{ url_for('lista_produtos') }}" class="nav-link-custom {% if request.endpoint == 'lista_produtos' or request.endpoint == 'novo_produto' or request.endpoint == 'editar_produto' %}active{% endif %}">
+        <span class="icon">📦</span>
+        <span>Produtos</span>
+      </a>
+      <a href="{{ url_for('estoque_view') }}" class="nav-link-custom {% if request.endpoint == 'estoque_view' %}active{% endif %}">
+        <span class="icon">🏬</span>
+        <span>Estoque &amp; Reposição</span>
+      </a>
+
+      <div class="nav-group-title">Operação</div>
+      <a href="{{ url_for('importar_ml_view') }}" class="nav-link-custom {% if request.endpoint == 'importar_ml_view' %}active{% endif %}">
+        <span class="icon">📥</span>
+        <span>Importar Vendas ML</span>
+      </a>
+      <a href="{{ url_for('configuracoes_view') }}" class="nav-link-custom {% if request.endpoint == 'configuracoes_view' %}active{% endif %}">
+        <span class="icon">⚙️</span>
+        <span>Configurações</span>
+      </a>
+    </div>
+  </aside>
+
+  <main class="content-wrapper">
+    <div class="content-inner">
+      <div class="topbar">
+        <h1>
+          <span class="dot"></span>
+          {% block header_title %}Visão geral{% endblock %}
+        </h1>
+        <div class="d-flex align-items-center gap-2">
+          <span class="badge-soft">
+         </span>
+        </div>
+      </div>
+
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          <div class="mb-3">
+            {% for category, message in messages %}
+              <div class="alert alert-{{ 'success' if category == 'success' else 'danger' if category == 'danger' else 'info' }} mb-1">
+                {{ message }}
+              </div>
+            {% endfor %}
+          </div>
+        {% endif %}
+      {% endwith %}
+
+      {% block content %}{% endblock %}
+    </div>
+  </main>
 </div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
