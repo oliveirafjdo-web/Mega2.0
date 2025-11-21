@@ -342,24 +342,23 @@ def dashboard():
         ).first()
 
     return render_template(
-        "dashboard.html",
-        total_produtos=total_produtos,
-        estoque_total=estoque_total,
-        receita_total=receita_total,
-        receita_liquida_total=receita_liquida_total,
-        custo_total=custo_total,
-        comissao_total=comissao_total,
-        imposto_total=imposto_total,
-        despesas_total=despesas_total,
-        lucro_liquido_total=lucro_liquido_total,
-        margem_liquida_percent=margem_liquida_percent,
-        margem_media=margem_media,
-        ticket_medio=ticket_medio,
-        produto_mais_vendido=produto_mais_vendido,
-        produto_maior_lucro=produto_maior_lucro,
-        produto_pior_margem=produto_pior_margem,
-        cfg=cfg,
-    )
+    "dashboard.html",
+    receita_total=receita_total,
+    receita_liquida_total=receita_liquida_total,
+    lucro_liquido_total=lucro_liquido_total,
+    margem_liquida_percent=margem_liquida_percent,
+    custo_total=custo_total,
+    comissao_total=comissao_total,
+    imposto_total=imposto_total,
+    despesas_total=despesas_total,
+    ticket_medio=ticket_medio,
+    total_produtos=total_produtos,
+    estoque_total=estoque_total,
+    produto_mais_vendido=produto_mais_vendido,
+    produto_maior_lucro=produto_maior_lucro,
+    produto_pior_margem=produto_pior_margem,
+    cfg=cfg
+)
 
 
 # ---------------- PRODUTOS ----------------
