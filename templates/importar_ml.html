@@ -1,15 +1,33 @@
 {% extends "base.html" %}
+{% block title %}Importar vendas ML · MetriFy{% endblock %}
+{% block header_title %}Importação Mercado Livre{% endblock %}
+
 {% block content %}
-<h1>Importar Vendas do Mercado Livre</h1>
+<div class="card-soft mb-3">
+  <div class="metric-label mb-1">Importar planilha oficial do Mercado Livre</div>
+  <div class="metric-sub">
+    Use a aba <strong>"Vendas BR"</strong> exportada do painel do Mercado Livre. 
+    O sistema vai ler SKU / Título, total (BRL) e tarifa de venda e impostos.
+  </div>
+</div>
 
-<form method="POST" enctype="multipart/form-data">
-  <label>Arquivo Excel da planilha oficial (Vendas BR)</label>
-  <input type="file" name="arquivo" required>
-  <button type="submit" class="btn btn-primary">Importar</button>
-</form>
+<div class="card-soft mb-3">
+  <form method="post" enctype="multipart/form-data" class="row g-3 align-items-end">
+    <div class="col-12 col-md-8">
+      <label class="form-label small mb-1">Arquivo XLSX</label>
+      <input type="file" name="arquivo" class="form-control" accept=".xls,.xlsx" required>
+    </div>
+    <div class="col-12 col-md-4">
+      <button type="submit" class="btn btn-soft w-100 mt-3 mt-md-0">Importar vendas</button>
+    </div>
+  </form>
+</div>
 
-<p class="small">
-  A planilha deve conter a aba "Vendas BR" com as colunas padrão do Mercado Livre
-  (incluindo "N.º de venda", "SKU", "Título do anúncio", "Unidades", "Total (BRL)", etc.).
-</p>
+<div class="card-soft">
+  <div class="metric-label mb-1">Precisa de um modelo manual?</div>
+  <div class="metric-sub mb-2">
+    Você também pode lançar vendas com base em um template próprio preenchido manualmente.
+  </div>
+  <a href="{{ url_for('exportar_template') }}" class="btn btn-soft btn-sm">Baixar template de consolidação</a>
+</div>
 {% endblock %}

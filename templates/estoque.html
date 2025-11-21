@@ -1,110 +1,85 @@
 {% extends "base.html" %}
+{% block title %}Estoque &amp; reposição · MetriFy{% endblock %}
+{% block header_title %}Estoque, giro e reposição{% endblock %}
+
 {% block content %}
-<div class="container mt-4">
-
-    <h2 class="mb-4">Estoque Inteligente</h2>
-
-    <div class="alert alert-info">
-        Janela analisada: <b>{{ janela_dias }} dias</b> — Estoque mínimo recomendado: <b>{{ dias_minimos }} dias</b>
+<div class="card-soft mb-3">
+  <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <div>
+      <div class="metric-label">Média de vendas &amp; cobertura</div>
+      <div class="metric-sub">
+        Considerando os últimos {{ janela_dias }} dias de vendas para cada produto.
+        Estoque mínimo desejado: {{ dias_minimos }} dias de cobertura.
+      </div>
     </div>
+    <span class="badge-soft">Reposição automática visual</span>
+  </div>
+</div>
 
-    <table class="table table-striped table-bordered table-hover align-middle">
-        <thead class="table-dark">
-            <tr>
-                <th>Produto</th>
-                <th>SKU</th>
-                <th>Estoque Atual</th>
-                <th>Média Diária</th>
-                <th>Média Mensal</th>
-                <th>Dias de Cobertura</th>
-                <th>Reposição</th>
-                <th style="width: 160px;">Ajustar</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for p in produtos %}
-            <tr
-                {% if p.precisa_repor %}
-                    class="table-danger"
-                {% endif %}
-            >
-                <td>{{ p.nome }}</td>
-                <td>{{ p.sku }}</td>
-                <td><b>{{ p.estoque_atual }}</b></td>
-                <td>{{ "%.2f"|format(p.media_diaria) }}</td>
-                <td>{{ "%.2f"|format(p.media_mensal) }}</td>
-                <td>
-                    {% if p.dias_cobertura %}
-                        {{ "%.1f"|format(p.dias_cobertura) }} dias
-                    {% else %}
-                        <i>Sem vendas recentes</i>
-                    {% endif %}
-                </td>
-                <td>
-                    {% if p.precisa_repor %}
-                        <span class="badge bg-danger">Repor</span>
-                    {% else %}
-                        <span class="badge bg-success">OK</span>
-                    {% endif %}
-                </td>
-                <td>
-                    <button class="btn btn-sm btn-primary" data-bs-toggle="modal"
-                            data-bs-target="#ajuste{{ p.id }}">
-                        Ajustar
-                    </button>
-                </td>
-            </tr>
-
-            <!-- Modal de Ajuste -->
-            <div class="modal fade" id="ajuste{{ p.id }}" tabindex="-1">
-                <div class="modal-dialog">
-                    <form method="POST" action="{{ url_for('ajuste_estoque') }}" class="modal-content">
-                        <div class="modal-header">
-                            <h5 class="modal-title">Ajuste de Estoque — {{ p.nome }}</h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                        </div>
-
-                        <div class="modal-body">
-
-                            <input type="hidden" name="produto_id" value="{{ p.id }}">
-
-                            <div class="mb-3">
-                                <label class="form-label">Tipo de ajuste</label>
-                                <select class="form-select" name="tipo">
-                                    <option value="entrada">Entrada</option>
-                                    <option value="saida">Saída</option>
-                                </select>
-                            </div>
-
-                            <div class="mb-3">
-                                <label class="form-label">Quantidade</label>
-                                <input type="number" name="quantidade" min="1" class="form-control" required>
-                            </div>
-
-                            <div class="mb-3">
-                                <label class="form-label">Novo custo unitário (opcional)</label>
-                                <input type="number" step="0.01" class="form-control" name="custo_unitario"
-                                       placeholder="Manter custo atual">
-                            </div>
-
-                            <div class="mb-3">
-                                <label class="form-label">Observação</label>
-                                <textarea class="form-control" name="observacao"></textarea>
-                            </div>
-
-                        </div>
-
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                            <button type="submit" class="btn btn-primary">Salvar Ajuste</button>
-                        </div>
-                    </form>
+<div class="card-soft mb-3">
+  <div class="table-responsive">
+    <table class="table table-sm table-dark-modern align-middle mb-0">
+      <thead>
+        <tr>
+          <th>Produto</th>
+          <th>SKU</th>
+          <th class="text-end">Estoque atual</th>
+          <th class="text-end">Média diária</th>
+          <th class="text-end">Média mensal</th>
+          <th class="text-end">Dias de cobertura</th>
+          <th class="text-center">Status</th>
+          <th style="width:180px;" class="text-end">Ajustar estoque</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in produtos %}
+          <tr>
+            <td>{{ p.nome }}</td>
+            <td>{{ p.sku or '-' }}</td>
+            <td class="text-end">{{ '%.0f'|format(p.estoque_atual) }}</td>
+            <td class="text-end">{{ '%.2f'|format(p.media_diaria) }}</td>
+            <td class="text-end">{{ '%.2f'|format(p.media_mensal) }}</td>
+            <td class="text-end">
+              {% if p.dias_cobertura is none %}
+                <span class="text-muted">Sem base</span>
+              {% else %}
+                {{ '%.1f'|format(p.dias_cobertura) }}
+              {% endif %}
+            </td>
+            <td class="text-center">
+              {% if p.dias_cobertura is none %}
+                <span class="badge-soft">Sem vendas recentes</span>
+              {% elif p.precisa_repor %}
+                <span class="badge-soft-danger">Reposição urgente (&lt; {{ dias_minimos }} dias)</span>
+              {% else %}
+                <span class="badge-soft-success">Cobertura OK</span>
+              {% endif %}
+            </td>
+            <td class="text-end">
+              <form method="post" action="{{ url_for('ajuste_estoque') }}" class="row gx-1 gy-1 justify-content-end">
+                <input type="hidden" name="produto_id" value="{{ p.id }}">
+                <div class="col-4">
+                  <select name="tipo" class="form-select form-select-sm">
+                    <option value="entrada">+ Entr.</option>
+                    <option value="saida">- Saída</option>
+                  </select>
                 </div>
-            </div>
-
-            {% endfor %}
-        </tbody>
+                <div class="col-4">
+                  <input type="number" name="quantidade" class="form-control form-control-sm" min="1" value="1">
+                </div>
+                <div class="col-4 d-grid">
+                  <button type="submit" class="btn btn-soft btn-sm">Aplicar</button>
+                </div>
+              </form>
+            </td>
+          </tr>
+        {% else %}
+          <tr>
+            <td colspan="8" class="text-center text-muted py-3">Nenhum produto cadastrado.</td>
+          </tr>
+        {% endfor %}
+      </tbody>
     </table>
-
+  </div>
 </div>
 {% endblock %}

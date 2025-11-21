@@ -1,21 +1,35 @@
 {% extends "base.html" %}
+{% block title %}Editar venda · MetriFy{% endblock %}
+{% block header_title %}Editar venda #{{ venda.id }}{% endblock %}
+
 {% block content %}
-<h1>Editar Venda #{{ venda.id }}</h1>
+<div class="card-soft">
+  <form method="post" class="row g-3">
+    <div class="col-12 col-md-6">
+      <label class="form-label small mb-1">Produto</label>
+      <input type="text" class="form-control" value="{{ venda.nome }}" disabled>
+    </div>
+    <div class="col-6 col-md-3">
+      <label class="form-label small mb-1">Quantidade</label>
+      <input type="number" name="quantidade" class="form-control" min="1" value="{{ venda.quantidade }}" required>
+    </div>
+    <div class="col-6 col-md-3">
+      <label class="form-label small mb-1">Custo total (R$)</label>
+      <input type="number" step="0.01" name="custo_total" class="form-control" value="{{ venda.custo_total or 0 }}" required>
+    </div>
+    <div class="col-6 col-md-3">
+      <label class="form-label small mb-1">Preço unitário (R$)</label>
+      <input type="number" step="0.01" name="preco_venda_unitario" class="form-control" value="{{ venda.preco_venda_unitario or 0 }}" required>
+    </div>
+    <div class="col-6 col-md-3">
+      <label class="form-label small mb-1">Data da venda</label>
+      <input type="text" class="form-control" value="{{ venda.data_venda or '-' }}" disabled>
+    </div>
 
-<form method="POST">
-  <label>Produto</label>
-  <input type="text" value="{{ venda.nome }}" disabled>
-
-  <label>Quantidade</label>
-  <input type="number" name="quantidade" value="{{ venda.quantidade }}" min="1" required>
-
-  <label>Preço venda unitário (R$)</label>
-  <input type="number" step="0.01" name="preco_venda_unitario" value="{{ venda.preco_venda_unitario }}" required>
-
-  <label>Custo total (R$)</label>
-  <input type="number" step="0.01" name="custo_total" value="{{ venda.custo_total }}" required>
-
-  <button type="submit" class="btn btn-success">Salvar</button>
-  <a href="{{ url_for('lista_vendas') }}" class="btn btn-danger">Cancelar</a>
-</form>
+    <div class="col-12 d-flex justify-content-between mt-2">
+      <a href="{{ url_for('lista_vendas') }}" class="btn btn-outline-light btn-sm">Voltar</a>
+      <button type="submit" class="btn btn-soft">Salvar alterações</button>
+    </div>
+  </form>
+</div>
 {% endblock %}
