@@ -1,255 +1,318 @@
 <!DOCTYPE html>
-<html lang="pt-br">
+<html lang="pt-BR">
 <head>
-  <meta charset="UTF-8">
-  <title>{% block title %}Redutron ERP{% endblock %}</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <!-- Bootstrap via CDN -->
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <meta charset="UTF-8" />
+  <title>{% block title %}MetriFy ERP{% endblock %}</title>
+
+  <!-- Bootstrap 5 -->
+  <link
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+    rel="stylesheet"
+  >
+
+  <!-- Ícones (Bootstrap Icons) -->
+  <link
+    rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css"
+  >
+
   <style>
     body {
-      margin: 0;
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       background: #0f172a;
       color: #e5e7eb;
     }
+
     .layout {
       display: flex;
       min-height: 100vh;
     }
+
     .sidebar {
       width: 240px;
-      background: radial-gradient(circle at top left, #0ea5e9, #020617);
-      padding: 20px 16px;
+      background: radial-gradient(circle at top, #1d4ed8, #020617);
       color: #e5e7eb;
-      box-shadow: 4px 0 20px rgba(15,23,42,0.9);
+      padding: 1.5rem 1rem;
       position: sticky;
       top: 0;
-      align-self: flex-start;
       height: 100vh;
     }
-    .sidebar-logo {
+
+    .sidebar .brand {
       display: flex;
       align-items: center;
-      gap: 8px;
-      margin-bottom: 24px;
+      gap: .6rem;
+      margin-bottom: 2rem;
+      padding: .5rem .75rem;
+      border-radius: .75rem;
+      background: rgba(15,23,42,.8);
+      border: 1px solid rgba(148,163,184,.4);
     }
-    .logo-circle {
+
+    .brand-icon {
       width: 32px;
       height: 32px;
-      border-radius: 999px;
-      background: conic-gradient(from 140deg, #22c55e, #0ea5e9, #6366f1, #22c55e);
+      border-radius: .75rem;
+      background: conic-gradient(from 160deg, #22c55e, #0ea5e9, #6366f1, #22c55e);
       display: flex;
       align-items: center;
       justify-content: center;
+      color: #0b1120;
       font-weight: 700;
       font-size: 18px;
-      color: #0f172a;
     }
-    .sidebar h2 {
-      font-size: 18px;
-      margin: 0;
+
+    .brand-text {
+      line-height: 1.1;
     }
-    .sidebar small {
-      font-size: 11px;
-      color: #cbd5f5;
-      opacity: .8;
-    }
-    .nav-group-title {
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: .06em;
-      margin: 18px 8px 6px;
-      color: #9ca3af;
-    }
-    .nav-link-custom {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 8px 10px;
-      margin-bottom: 4px;
-      border-radius: 8px;
-      color: #e5e7eb;
-      font-size: 14px;
-      text-decoration: none;
-      transition: all .15s ease;
-    }
-    .nav-link-custom span.icon {
-      width: 18px;
-      text-align: center;
-      font-size: 14px;
-      opacity: .8;
-    }
-    .nav-link-custom:hover {
-      background: rgba(15,23,42,0.7);
-      transform: translateX(1px);
-    }
-    .nav-link-custom.active {
-      background: linear-gradient(90deg, #22c55e, #0ea5e9);
-      color: #0f172a;
+
+    .brand-text .title {
       font-weight: 600;
+      font-size: 16px;
     }
-    .nav-link-custom.active span.icon {
-      opacity: 1;
-    }
-    .content-wrapper {
-      flex: 1;
-      padding: 18px 22px;
-      background: radial-gradient(circle at top, rgba(56,189,248,0.08), transparent 55%);
-    }
-    .content-inner {
-      max-width: 1200px;
-      margin: 0 auto;
-    }
-    .topbar {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 16px;
-    }
-    .topbar h1 {
-      font-size: 22px;
-      margin: 0;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .topbar h1 span.dot {
-      width: 6px;
-      height: 6px;
-      border-radius: 999px;
-      background: #22c55e;
-      box-shadow: 0 0 10px rgba(34,197,94,0.9);
-    }
-    .card-soft {
-      background: radial-gradient(circle at top left, rgba(148,163,184,0.25), rgba(15,23,42,0.95));
-      border-radius: 14px;
-      padding: 14px 16px;
-      border: 1px solid rgba(148,163,184,0.25);
-      box-shadow: 0 18px 45px rgba(15,23,42,0.9);
-    }
-    .card-soft-compact {
-      padding: 10px 12px;
-      border-radius: 12px;
-      border: 1px solid rgba(148,163,184,0.2);
-      background: rgba(15,23,42,0.92);
-    }
-    .metric-label {
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: .09em;
-      color: #9ca3af;
-      margin-bottom: 2px;
-    }
-    .metric-value {
-      font-size: 18px;
-      font-weight: 600;
-      color: #e5e7eb;
-    }
-    .metric-sub {
+
+    .brand-text .subtitle {
       font-size: 11px;
       color: #9ca3af;
     }
-    table.table-dark-modern {
-      color: #e5e7eb;
-      font-size: 13px;
-      border-color: rgba(31,41,55,0.9);
-    }
-    table.table-dark-modern thead {
-      background: linear-gradient(90deg, rgba(15,23,42,0.95), rgba(15,23,42,0.9));
-      border-bottom: 1px solid rgba(148,163,184,0.35);
-    }
-    table.table-dark-modern thead th {
-      border-bottom-width: 1px;
-      border-color: rgba(51,65,85,0.9);
-      color: #9ca3af;
+
+    .nav-section-title {
       font-size: 11px;
       text-transform: uppercase;
       letter-spacing: .08em;
+      color: #6b7280;
+      margin-bottom: .5rem;
+      padding-left: .4rem;
     }
-    table.table-dark-modern tbody tr {
-      background: rgba(15,23,42,0.92);
+
+    .nav-link {
+      display: flex;
+      align-items: center;
+      gap: .6rem;
+      padding: .55rem .75rem;
+      border-radius: .6rem;
+      color: #e5e7eb;
+      text-decoration: none;
+      font-size: 14px;
+      margin-bottom: .25rem;
     }
-    table.table-dark-modern tbody tr:nth-child(even) {
-      background: rgba(15,23,42,0.75);
+
+    .nav-link i {
+      font-size: 16px;
+      width: 18px;
+      text-align: center;
     }
-    table.table-dark-modern tbody tr:hover {
-      background: rgba(30,64,175,0.7);
+
+    .nav-link:hover {
+      background: rgba(30,64,175,.6);
+      color: #f9fafb;
     }
+
+    .nav-link.active {
+      background: linear-gradient(to right, #2563eb, #4f46e5);
+      box-shadow: 0 14px 30px rgba(37,99,235,.35);
+      color: #f9fafb;
+    }
+
+    .content-wrapper {
+      flex: 1;
+      padding: 1.5rem 1.75rem;
+      background: radial-gradient(circle at top, rgba(37,99,235,.35), transparent 60%),
+                  radial-gradient(circle at bottom, rgba(16,185,129,.25), transparent 55%),
+                  #020617;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1.5rem;
+    }
+
+    .topbar-title {
+      font-size: 20px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+    }
+
+    .topbar-title span.badge {
+      font-size: 11px;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+
+    .topbar-right {
+      display: flex;
+      align-items: center;
+      gap: .75rem;
+    }
+
+    .topbar-pill {
+      border-radius: 999px;
+      border: 1px solid rgba(148,163,184,.45);
+      padding: .35rem .85rem;
+      font-size: 12px;
+      color: #9ca3af;
+      display: flex;
+      align-items: center;
+      gap: .4rem;
+      background: rgba(15,23,42,.8);
+    }
+
+    .card-glass {
+      border-radius: 1rem;
+      border: 1px solid rgba(148,163,184,.35);
+      background: radial-gradient(circle at top left, rgba(37,99,235,.15), transparent 50%),
+                  rgba(15,23,42,.84);
+      box-shadow: 0 20px 45px rgba(15,23,42,.75);
+      padding: 1.25rem 1.4rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .card-glass-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: .75rem;
+    }
+
+    .card-glass-title {
+      font-size: 14px;
+      font-weight: 500;
+      color: #9ca3af;
+      display: flex;
+      align-items: center;
+      gap: .4rem;
+    }
+
     .badge-soft {
       border-radius: 999px;
-      padding: 3px 8px;
-      font-size: 11px;
-      border: 1px solid rgba(148,163,184,0.55);
-      color: #e5e7eb;
-      background: rgba(15,23,42,0.9);
+      padding: .15rem .6rem;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      border: 1px solid rgba(148,163,184,.45);
+      color: #9ca3af;
     }
-    .badge-soft-success {
-      border-color: rgba(34,197,94,0.8);
+
+    .content-inner {
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    .alert {
+      border-radius: .75rem;
+      padding: .6rem .9rem;
+      font-size: 13px;
+      margin-bottom: .75rem;
+    }
+
+    .alert-success {
+      background: rgba(22,163,74,.09);
+      border: 1px solid rgba(22,163,74,.5);
       color: #bbf7d0;
-      background: rgba(21,128,61,0.3);
     }
-    .badge-soft-danger {
-      border-color: rgba(248,113,113,0.8);
+
+    .alert-danger {
+      background: rgba(220,38,38,.09);
+      border: 1px solid rgba(220,38,38,.55);
       color: #fecaca;
-      background: rgba(185,28,28,0.3);
     }
-    .btn-soft {
-      border-radius: 999px;
-      border: 1px solid rgba(148,163,184,0.4);
-      font-size: 12px;
-      padding: 5px 12px;
-      color: #e5e7eb;
-      background: radial-gradient(circle at top, rgba(30,64,175,0.85), rgba(15,23,42,0.95));
+
+    .btn-primary {
+      background: linear-gradient(to right, #2563eb, #4f46e5);
+      border: none;
+      border-radius: .7rem;
+      padding-inline: 1rem;
+      box-shadow: 0 14px 35px rgba(37,99,235,.45);
     }
-    .btn-soft:hover {
-      border-color: #38bdf8;
-      color: #e0f2fe;
-      background: linear-gradient(120deg, #0ea5e9, #6366f1);
+
+    .btn-outline-light {
+      border-radius: .7rem;
     }
-    .btn-soft-danger {
-      background: radial-gradient(circle at top, rgba(185,28,28,0.9), rgba(15,23,42,0.95));
-      border-color: rgba(248,113,113,0.7);
-    }
-    .btn-soft-danger:hover {
-      background: linear-gradient(120deg, #ef4444, #b91c1c);
-      color: #fee2e2;
-    }
+
     .form-control,
     .form-select {
-      font-size: 13px;
-      background-color: rgba(15,23,42,0.9);
-      border-color: rgba(148,163,184,0.5);
+      background: rgba(15,23,42,.9);
+      border-radius: .6rem;
+      border: 1px solid rgba(148,163,184,.45);
       color: #e5e7eb;
+      font-size: 14px;
     }
+
     .form-control:focus,
     .form-select:focus {
-      border-color: #38bdf8;
-      box-shadow: 0 0 0 1px rgba(56,189,248,0.6);
-      background-color: rgba(15,23,42,0.95);
+      border-color: #60a5fa;
+      box-shadow: 0 0 0 1px rgba(96,165,250,.5);
+      background: rgba(15,23,42,.98);
+      color: #f9fafb;
+    }
+
+    .form-label {
+      font-size: 13px;
+      color: #9ca3af;
+    }
+
+    table {
+      font-size: 13px;
       color: #e5e7eb;
     }
-    .alert {
-      font-size: 13px;
+
+    thead tr {
+      background: rgba(15,23,42,.95);
+    }
+
+    thead th {
+      border-bottom: 1px solid rgba(148,163,184,.45) !important;
+      color: #9ca3af;
+      font-weight: 500;
+    }
+
+    tbody tr {
+      border-bottom: 1px solid rgba(30,41,59,.85);
+    }
+
+    tbody tr:hover {
+      background: rgba(15,23,42,.9);
+    }
+
+    .table-responsive {
+      border-radius: .75rem;
+      border: 1px solid rgba(148,163,184,.35);
+      background: rgba(15,23,42,.85);
+      box-shadow: 0 14px 38px rgba(15,23,42,.8);
+    }
+
+    .badge-chip {
+      font-size: 11px;
       border-radius: 999px;
-      padding: 6px 12px;
+      padding: .15rem .55rem;
     }
-    .alert-success {
-      background: rgba(22,163,74,0.1);
-      border-color: rgba(22,163,74,0.6);
-      color: #bbf7d0;
+
+    .text-soft {
+      color: #9ca3af;
+      font-size: 12px;
     }
-    .alert-danger {
-      background: rgba(185,28,28,0.15);
-      border-color: rgba(185,28,28,0.75);
-      color: #fecaca;
+
+    .stat-label {
+      font-size: 12px;
+      color: #9ca3af;
     }
-    .alert-info {
-      background: rgba(37,99,235,0.15);
-      border-color: rgba(37,99,235,0.75);
-      color: #bfdbfe;
+
+    .stat-value {
+      font-size: 18px;
+      font-weight: 600;
+      color: #f9fafb;
     }
-    @media (max-width: 900px) {
+
+    .stat-sub {
+      font-size: 11px;
+      color: #6b7280;
+    }
+
+    @media (max-width: 992px) {
       .layout {
         flex-direction: column;
       }
@@ -258,90 +321,105 @@
         height: auto;
         position: static;
         display: flex;
+        flex-direction: row;
         align-items: center;
-        justify-content: space-between;
+        gap: 1rem;
+        overflow-x: auto;
+      }
+      .nav-section-title {
+        display: none;
+      }
+      .content-wrapper {
+        padding: 1rem;
       }
     }
   </style>
+
+  {% block extra_head %}{% endblock %}
 </head>
 <body>
-<div class="layout">
-  <aside class="sidebar">
-    <div>
-      <div class="sidebar-logo">
-        <div class="logo-circle">M</div>
-        <div>
-          <h2>Redutron ERP</h2>
-          <small>Controle de vendas &amp; estoque</small>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-icon">M</div>
+        <div class="brand-text">
+          <div class="title">MetriFy ERP</div>
+          <div class="subtitle">Lucro & Estoque em tempo real</div>
         </div>
       </div>
 
-      <div class="nav-group-title">Principal</div>
-      <a href="{{ url_for('dashboard') }}" class="nav-link-custom {% if request.endpoint == 'dashboard' %}active{% endif %}">
-        <span class="icon">📊</span>
+      <div class="nav-section-title">Navegação</div>
+
+      <a href="{{ url_for('dashboard') }}" class="nav-link {% if request.endpoint == 'dashboard' %}active{% endif %}">
+        <i class="bi bi-speedometer2"></i>
         <span>Dashboard</span>
       </a>
-      <a href="{{ url_for('lista_vendas') }}" class="nav-link-custom {% if request.endpoint == 'lista_vendas' %}active{% endif %}">
-        <span class="icon">💰</span>
+
+      <a href="{{ url_for('lista_produtos') }}" class="nav-link {% if request.endpoint in ['lista_produtos','novo_produto','editar_produto'] %}active{% endif %}">
+        <i class="bi bi-box-seam"></i>
+        <span>Produtos</span>
+      </a>
+
+      <a href="{{ url_for('estoque_view') }}" class="nav-link {% if request.endpoint == 'estoque_view' %}active{% endif %}">
+        <i class="bi bi-stack"></i>
+        <span>Estoque & Reposição</span>
+      </a>
+
+      <a href="{{ url_for('importar_ml_view') }}" class="nav-link {% if request.endpoint == 'importar_ml_view' %}active{% endif %}">
+        <i class="bi bi-cloud-arrow-up"></i>
+        <span>Importar Vendas ML</span>
+      </a>
+
+      <a href="{{ url_for('lista_vendas') }}" class="nav-link {% if request.endpoint in ['lista_vendas','editar_venda'] %}active{% endif %}">
+        <i class="bi bi-receipt"></i>
         <span>Vendas</span>
       </a>
-      <a href="{{ url_for('relatorio_lucro') }}" class="nav-link-custom {% if request.endpoint == 'relatorio_lucro' %}active{% endif %}">
-        <span class="icon">📈</span>
+
+      <a href="{{ url_for('relatorio_lucro') }}" class="nav-link {% if request.endpoint == 'relatorio_lucro' %}active{% endif %}">
+        <i class="bi bi-graph-up-arrow"></i>
         <span>Relatório de Lucro</span>
       </a>
 
-      <div class="nav-group-title">Catálogo</div>
-      <a href="{{ url_for('lista_produtos') }}" class="nav-link-custom {% if request.endpoint == 'lista_produtos' or request.endpoint == 'novo_produto' or request.endpoint == 'editar_produto' %}active{% endif %}">
-        <span class="icon">📦</span>
-        <span>Produtos</span>
-      </a>
-      <a href="{{ url_for('estoque_view') }}" class="nav-link-custom {% if request.endpoint == 'estoque_view' %}active{% endif %}">
-        <span class="icon">🏬</span>
-        <span>Estoque &amp; Reposição</span>
-      </a>
+      <div class="nav-section-title mt-3">Sistema</div>
 
-      <div class="nav-group-title">Operação</div>
-      <a href="{{ url_for('importar_ml_view') }}" class="nav-link-custom {% if request.endpoint == 'importar_ml_view' %}active{% endif %}">
-        <span class="icon">📥</span>
-        <span>Importar Vendas ML</span>
-      </a>
-      <a href="{{ url_for('configuracoes_view') }}" class="nav-link-custom {% if request.endpoint == 'configuracoes_view' %}active{% endif %}">
-        <span class="icon">⚙️</span>
+      <a href="{{ url_for('configuracoes_view') }}" class="nav-link {% if request.endpoint == 'configuracoes_view' %}active{% endif %}">
+        <i class="bi bi-sliders2-vertical"></i>
         <span>Configurações</span>
       </a>
-    </div>
-  </aside>
+    </aside>
 
-  <main class="content-wrapper">
-    <div class="content-inner">
-      <div class="topbar">
-        <h1>
-          <span class="dot"></span>
-          {% block header_title %}Visão geral{% endblock %}
-        </h1>
-        <div class="d-flex align-items-center gap-2">
-          <span class="badge-soft">
-         </span>
+    <main class="content-wrapper">
+      <div class="content-inner">
+        <div class="topbar">
+          <div class="topbar-title">
+            {% block page_icon %}<i class="bi bi-speedometer2 text-primary"></i>{% endblock %}
+            <span>{% block page_title %}Visão Geral{% endblock %}</span>
+            <span class="badge text-bg-primary border border-light-subtle">MetriFy • Postgres</span>
+          </div>
+          <div class="topbar-right">
+            <div class="topbar-pill">
+              <i class="bi bi-cloud-check"></i>
+              <span>Online</span>
+            </div>
+          </div>
         </div>
-      </div>
 
-      {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-          <div class="mb-3">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
             {% for category, message in messages %}
-              <div class="alert alert-{{ 'success' if category == 'success' else 'danger' if category == 'danger' else 'info' }} mb-1">
+              <div class="alert alert-{{ 'success' if category == 'success' else 'danger' }}">
                 {{ message }}
               </div>
             {% endfor %}
-          </div>
-        {% endif %}
-      {% endwith %}
+          {% endif %}
+        {% endwith %}
 
-      {% block content %}{% endblock %}
-    </div>
-  </main>
-</div>
+        {% block content %}{% endblock %}
+      </div>
+    </main>
+  </div>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  {% block extra_js %}{% endblock %}
 </body>
 </html>
