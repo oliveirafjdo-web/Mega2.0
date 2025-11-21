@@ -1,83 +1,142 @@
 {% extends "base.html" %}
-{% block title %}Estoque &amp; reposição · MetriFy{% endblock %}
-{% block header_title %}Estoque, giro e reposição{% endblock %}
+
+{% block title %}Estoque & Reposição • MetriFy{% endblock %}
+{% block page_icon %}<i class="bi bi-stack text-primary"></i>{% endblock %}
+{% block page_title %}Estoque, giro e cobertura{% endblock %}
 
 {% block content %}
-<div class="card-soft mb-3">
-  <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
-    <div>
-      <div class="metric-label">Média de vendas &amp; cobertura</div>
-      <div class="metric-sub">
-        Considerando os últimos {{ janela_dias }} dias de vendas para cada produto.
-        Estoque mínimo desejado: {{ dias_minimos }} dias de cobertura.
+<div class="card-glass mb-3">
+  <div class="card-glass-header">
+    <div class="card-glass-title">
+      <i class="bi bi-clock-history"></i> Configuração de análise
+    </div>
+  </div>
+  <div class="row g-3">
+    <div class="col-6 col-md-3">
+      <div class="stat-label">Janela de análise</div>
+      <div class="stat-value">{{ janela_dias }} dias</div>
+      <div class="stat-sub">Período usado para calcular a média diária</div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="stat-label">Mínimo desejado</div>
+      <div class="stat-value">{{ dias_minimos }} dias</div>
+      <div class="stat-sub">Qtd. mínima de dias de estoque</div>
+    </div>
+    <div class="col-12 col-md-6">
+      <div class="text-soft">
+        A média diária é calculada com base nas vendas dos últimos
+        <strong>{{ janela_dias }} dias</strong>.  
+        <strong>Dias de cobertura</strong> = Estoque atual ÷ Média diária.  
+        Se a cobertura for menor que <strong>{{ dias_minimos }} dias</strong>, o produto é marcado como
+        <span class="text-danger">"Precisa repor"</span>.
       </div>
     </div>
-    <span class="badge-soft">Reposição automática visual</span>
   </div>
 </div>
 
-<div class="card-soft mb-3">
+<div class="card-glass mb-3">
+  <div class="card-glass-header">
+    <div class="card-glass-title">
+      <i class="bi bi-arrow-repeat"></i> Ajustar estoque
+    </div>
+  </div>
+
+  <form method="post" action="{{ url_for('ajuste_estoque') }}" class="row g-2 align-items-end">
+    <div class="col-12 col-md-4">
+      <label class="form-label" for="produto_id">Produto</label>
+      <select class="form-select" id="produto_id" name="produto_id" required>
+        <option value="">Selecione...</option>
+        {% for p in produtos %}
+          <option value="{{ p.id }}">{{ p.nome }} (SKU: {{ p.sku or '-' }})</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-6 col-md-2">
+      <label class="form-label" for="tipo">Tipo</label>
+      <select class="form-select" id="tipo" name="tipo">
+        <option value="entrada">Entrada</option>
+        <option value="saida">Saída</option>
+      </select>
+    </div>
+    <div class="col-6 col-md-2">
+      <label class="form-label" for="quantidade">Quantidade</label>
+      <input type="number" class="form-control" id="quantidade" name="quantidade" min="1" required>
+    </div>
+    <div class="col-6 col-md-2">
+      <label class="form-label" for="custo_unitario">Custo unit. (opcional)</label>
+      <input type="number" step="0.01" class="form-control" id="custo_unitario" name="custo_unitario">
+    </div>
+    <div class="col-12 col-md-2">
+      <label class="form-label" for="observacao">Obs.</label>
+      <input type="text" class="form-control" id="observacao" name="observacao" placeholder="Lote, motivo...">
+    </div>
+    <div class="col-12 mt-2">
+      <button type="submit" class="btn btn-primary">
+        <i class="bi bi-save"></i> Registrar ajuste
+      </button>
+    </div>
+  </form>
+</div>
+
+<div class="card-glass">
+  <div class="card-glass-header">
+    <div class="card-glass-title">
+      <i class="bi bi-table"></i> Produtos com análise de giro e cobertura
+    </div>
+    <span class="badge-soft">{{ produtos|length }} produtos</span>
+  </div>
+
   <div class="table-responsive">
-    <table class="table table-sm table-dark-modern align-middle mb-0">
+    <table class="table table-sm align-middle mb-0">
       <thead>
         <tr>
           <th>Produto</th>
           <th>SKU</th>
           <th class="text-end">Estoque atual</th>
-          <th class="text-end">Média diária</th>
-          <th class="text-end">Média mensal</th>
+          <th class="text-end">Custo unit. (R$)</th>
+          <th class="text-end">Média diária (un.)</th>
+          <th class="text-end">Média mensal (un.)</th>
           <th class="text-end">Dias de cobertura</th>
-          <th class="text-center">Status</th>
-          <th style="width:180px;" class="text-end">Ajustar estoque</th>
+          <th class="text-end">Status</th>
         </tr>
       </thead>
       <tbody>
-        {% for p in produtos %}
-          <tr>
-            <td>{{ p.nome }}</td>
-            <td>{{ p.sku or '-' }}</td>
-            <td class="text-end">{{ '%.0f'|format(p.estoque_atual) }}</td>
-            <td class="text-end">{{ '%.2f'|format(p.media_diaria) }}</td>
-            <td class="text-end">{{ '%.2f'|format(p.media_mensal) }}</td>
-            <td class="text-end">
-              {% if p.dias_cobertura is none %}
-                <span class="text-muted">Sem base</span>
-              {% else %}
-                {{ '%.1f'|format(p.dias_cobertura) }}
-              {% endif %}
-            </td>
-            <td class="text-center">
-              {% if p.dias_cobertura is none %}
-                <span class="badge-soft">Sem vendas recentes</span>
-              {% elif p.precisa_repor %}
-                <span class="badge-soft-danger">Reposição urgente (&lt; {{ dias_minimos }} dias)</span>
-              {% else %}
-                <span class="badge-soft-success">Cobertura OK</span>
-              {% endif %}
-            </td>
-            <td class="text-end">
-              <form method="post" action="{{ url_for('ajuste_estoque') }}" class="row gx-1 gy-1 justify-content-end">
-                <input type="hidden" name="produto_id" value="{{ p.id }}">
-                <div class="col-4">
-                  <select name="tipo" class="form-select form-select-sm">
-                    <option value="entrada">+ Entr.</option>
-                    <option value="saida">- Saída</option>
-                  </select>
-                </div>
-                <div class="col-4">
-                  <input type="number" name="quantidade" class="form-control form-control-sm" min="1" value="1">
-                </div>
-                <div class="col-4 d-grid">
-                  <button type="submit" class="btn btn-soft btn-sm">Aplicar</button>
-                </div>
-              </form>
-            </td>
-          </tr>
+        {% if produtos %}
+          {% for p in produtos %}
+            <tr>
+              <td>{{ p.nome }}</td>
+              <td><span class="badge bg-dark badge-chip">{{ p.sku or '-' }}</span></td>
+              <td class="text-end">{{ p.estoque_atual|int }}</td>
+              <td class="text-end">R$ {{ '%.2f'|format(p.custo_unitario) }}</td>
+              <td class="text-end">{{ '%.2f'|format(p.media_diaria) }}</td>
+              <td class="text-end">{{ '%.2f'|format(p.media_mensal) }}</td>
+              <td class="text-end">
+                {% if p.dias_cobertura is not none %}
+                  {{ '%.1f'|format(p.dias_cobertura) }} dias
+                {% else %}
+                  <span class="text-soft">Sem vendas na janela</span>
+                {% endif %}
+              </td>
+              <td class="text-end">
+                {% if p.precisa_repor %}
+                  <span class="badge bg-danger badge-chip">
+                    <i class="bi bi-exclamation-triangle"></i> Precisa repor
+                  </span>
+                {% else %}
+                  <span class="badge bg-success badge-chip">
+                    <i class="bi bi-check2-circle"></i> OK
+                  </span>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
         {% else %}
           <tr>
-            <td colspan="8" class="text-center text-muted py-3">Nenhum produto cadastrado.</td>
+            <td colspan="8" class="text-center text-soft py-3">
+              Nenhum produto cadastrado.
+            </td>
           </tr>
-        {% endfor %}
+        {% endif %}
       </tbody>
     </table>
   </div>
