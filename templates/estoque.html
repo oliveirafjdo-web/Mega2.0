@@ -1,144 +1,180 @@
 {% extends "base.html" %}
 
-{% block title %}Estoque & Reposição • MetriFy{% endblock %}
-{% block page_icon %}<i class="bi bi-stack text-primary"></i>{% endblock %}
-{% block page_title %}Estoque, giro e cobertura{% endblock %}
+{% block title %}Estoque - Metrify{% endblock %}
 
 {% block content %}
-<div class="card-glass mb-3">
-  <div class="card-glass-header">
-    <div class="card-glass-title">
-      <i class="bi bi-clock-history"></i> Configuração de análise
-    </div>
-  </div>
-  <div class="row g-3">
-    <div class="col-6 col-md-3">
-      <div class="stat-label">Janela de análise</div>
-      <div class="stat-value">{{ janela_dias }} dias</div>
-      <div class="stat-sub">Período usado para calcular a média diária</div>
-    </div>
-    <div class="col-6 col-md-3">
-      <div class="stat-label">Mínimo desejado</div>
-      <div class="stat-value">{{ dias_minimos }} dias</div>
-      <div class="stat-sub">Qtd. mínima de dias de estoque</div>
-    </div>
-    <div class="col-12 col-md-6">
-      <div class="text-soft">
-        A média diária é calculada com base nas vendas dos últimos
-        <strong>{{ janela_dias }} dias</strong>.  
-        <strong>Dias de cobertura</strong> = Estoque atual ÷ Média diária.  
-        Se a cobertura for menor que <strong>{{ dias_minimos }} dias</strong>, o produto é marcado como
-        <span class="text-danger">"Precisa repor"</span>.
-      </div>
-    </div>
-  </div>
-</div>
+<div class="container-fluid py-4">
 
-<div class="card-glass mb-3">
-  <div class="card-glass-header">
-    <div class="card-glass-title">
-      <i class="bi bi-arrow-repeat"></i> Ajustar estoque
+    <!-- Cabeçalho -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-1">Estoque e Reposição</h1>
+            <p class="text-muted mb-0">
+                Acompanhe o estoque atual, custo total e previsão de cobertura por produto.
+            </p>
+        </div>
     </div>
-  </div>
 
-  <form method="post" action="{{ url_for('ajuste_estoque') }}" class="row g-2 align-items-end">
-    <div class="col-12 col-md-4">
-      <label class="form-label" for="produto_id">Produto</label>
-      <select class="form-select" id="produto_id" name="produto_id" required>
-        <option value="">Selecione...</option>
-        {% for p in produtos %}
-          <option value="{{ p.id }}">{{ p.nome }} (SKU: {{ p.sku or '-' }})</option>
-        {% endfor %}
-      </select>
-    </div>
-    <div class="col-6 col-md-2">
-      <label class="form-label" for="tipo">Tipo</label>
-      <select class="form-select" id="tipo" name="tipo">
-        <option value="entrada">Entrada</option>
-        <option value="saida">Saída</option>
-      </select>
-    </div>
-    <div class="col-6 col-md-2">
-      <label class="form-label" for="quantidade">Quantidade</label>
-      <input type="number" class="form-control" id="quantidade" name="quantidade" min="1" required>
-    </div>
-    <div class="col-6 col-md-2">
-      <label class="form-label" for="custo_unitario">Custo unit. (opcional)</label>
-      <input type="number" step="0.01" class="form-control" id="custo_unitario" name="custo_unitario">
-    </div>
-    <div class="col-12 col-md-2">
-      <label class="form-label" for="observacao">Obs.</label>
-      <input type="text" class="form-control" id="observacao" name="observacao" placeholder="Lote, motivo...">
-    </div>
-    <div class="col-12 mt-2">
-      <button type="submit" class="btn btn-primary">
-        <i class="bi bi-save"></i> Registrar ajuste
-      </button>
-    </div>
-  </form>
-</div>
+    <!-- Cards de totais de estoque -->
+    <div class="row g-3 mb-4">
+        <!-- Total unidades -->
+        <div class="col-12 col-md-6 col-xl-4">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-body d-flex">
+                    <div class="flex-grow-1">
+                        <div class="text-muted text-uppercase small mb-1">
+                            Unidades totais em estoque
+                        </div>
+                        <div class="h4 mb-0">
+                            {{ total_unidades_estoque|int }}
+                        </div>
+                        <small class="text-muted">
+                            Soma de todas as unidades disponíveis.
+                        </small>
+                    </div>
+                    <div class="ms-3 d-flex align-items-center">
+                        <div class="rounded-circle bg-primary bg-opacity-10 p-3">
+                            <i class="bi bi-boxes text-primary fs-4"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
 
-<div class="card-glass">
-  <div class="card-glass-header">
-    <div class="card-glass-title">
-      <i class="bi bi-table"></i> Produtos com análise de giro e cobertura
-    </div>
-    <span class="badge-soft">{{ produtos|length }} produtos</span>
-  </div>
+        <!-- Custo total do estoque -->
+        <div class="col-12 col-md-6 col-xl-4">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-body d-flex">
+                    <div class="flex-grow-1">
+                        <div class="text-muted text-uppercase small mb-1">
+                            Custo total do estoque
+                        </div>
+                        <div class="h4 mb-0">
+                            R$ {{ '%.2f'|format(total_custo_estoque or 0) }}
+                        </div>
+                        <small class="text-muted">
+                            Estoque atual multiplicado pelo custo unitário de cada produto.
+                        </small>
+                    </div>
+                    <div class="ms-3 d-flex align-items-center">
+                        <div class="rounded-circle bg-success bg-opacity-10 p-3">
+                            <i class="bi bi-cash-stack text-success fs-4"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
 
-  <div class="table-responsive">
-    <table class="table table-sm align-middle mb-0">
-      <thead>
-        <tr>
-          <th>Produto</th>
-          <th>SKU</th>
-          <th class="text-end">Estoque atual</th>
-          <th class="text-end">Custo unit. (R$)</th>
-          <th class="text-end">Média diária (un.)</th>
-          <th class="text-end">Média mensal (un.)</th>
-          <th class="text-end">Dias de cobertura</th>
-          <th class="text-end">Status</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% if produtos %}
-          {% for p in produtos %}
-            <tr>
-              <td>{{ p.nome }}</td>
-              <td><span class="badge bg-dark badge-chip">{{ p.sku or '-' }}</span></td>
-              <td class="text-end">{{ p.estoque_atual|int }}</td>
-              <td class="text-end">R$ {{ '%.2f'|format(p.custo_unitario) }}</td>
-              <td class="text-end">{{ '%.2f'|format(p.media_diaria) }}</td>
-              <td class="text-end">{{ '%.2f'|format(p.media_mensal) }}</td>
-              <td class="text-end">
-                {% if p.dias_cobertura is not none %}
-                  {{ '%.1f'|format(p.dias_cobertura) }} dias
-                {% else %}
-                  <span class="text-soft">Sem vendas na janela</span>
-                {% endif %}
-              </td>
-              <td class="text-end">
-                {% if p.precisa_repor %}
-                  <span class="badge bg-danger badge-chip">
-                    <i class="bi bi-exclamation-triangle"></i> Precisa repor
-                  </span>
-                {% else %}
-                  <span class="badge bg-success badge-chip">
-                    <i class="bi bi-check2-circle"></i> OK
-                  </span>
-                {% endif %}
-              </td>
-            </tr>
-          {% endfor %}
-        {% else %}
-          <tr>
-            <td colspan="8" class="text-center text-soft py-3">
-              Nenhum produto cadastrado.
-            </td>
-          </tr>
-        {% endif %}
-      </tbody>
-    </table>
-  </div>
+        <!-- Parâmetros de cálculo -->
+        <div class="col-12 col-md-12 col-xl-4">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-body d-flex">
+                    <div class="flex-grow-1">
+                        <div class="text-muted text-uppercase small mb-1">
+                            Parâmetros de análise
+                        </div>
+                        <div class="mb-1">
+                            <span class="badge bg-light text-dark me-2">
+                                Janela: últimos {{ janela_dias }} dias
+                            </span>
+                            <span class="badge bg-light text-dark">
+                                Estoque mínimo: {{ dias_minimos }} dias
+                            </span>
+                        </div>
+                        <small class="text-muted d-block">
+                            A média diária de vendas é calculada dentro da janela de {{ janela_dias }} dias.
+                        </small>
+                        <small class="text-muted">
+                            Produtos com cobertura abaixo de {{ dias_minimos }} dias aparecem como
+                            <strong>"Repôr"</strong>.
+                        </small>
+                    </div>
+                    <div class="ms-3 d-flex align-items-center">
+                        <div class="rounded-circle bg-info bg-opacity-10 p-3">
+                            <i class="bi bi-info-circle text-info fs-4"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabela de estoque -->
+    <div class="card shadow-sm border-0">
+        <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Detalhamento por produto</h5>
+        </div>
+        <div class="table-responsive">
+            <table class="table align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Produto</th>
+                        <th>SKU</th>
+                        <th class="text-end">Estoque atual (un)</th>
+                        <th class="text-end">Custo unitário (R$)</th>
+                        <th class="text-end">Custo em estoque (R$)</th>
+                        <th class="text-end">Média diária (un)</th>
+                        <th class="text-end">Média mensal (un)</th>
+                        <th class="text-end">Cobertura (dias)</th>
+                        <th class="text-center">Situação</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if produtos %}
+                        {% for p in produtos %}
+                            <tr class="{% if p.precisa_repor %}table-warning{% endif %}">
+                                <td>{{ p.nome }}</td>
+                                <td>{{ p.sku or '-' }}</td>
+                                <td class="text-end">
+                                    {{ '%.0f'|format(p.estoque_atual or 0) }}
+                                </td>
+                                <td class="text-end">
+                                    R$ {{ '%.2f'|format(p.custo_unitario or 0) }}
+                                </td>
+                                <td class="text-end">
+                                    R$ {{ '%.2f'|format(p.custo_estoque or 0) }}
+                                </td>
+                                <td class="text-end">
+                                    {{ '%.2f'|format(p.media_diaria or 0) }}
+                                </td>
+                                <td class="text-end">
+                                    {{ '%.2f'|format(p.media_mensal or 0) }}
+                                </td>
+                                <td class="text-end">
+                                    {% if p.dias_cobertura is not none %}
+                                        {{ '%.1f'|format(p.dias_cobertura) }}
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </td>
+                                <td class="text-center">
+                                    {% if p.dias_cobertura is none %}
+                                        <span class="badge bg-secondary-subtle text-secondary">
+                                            Sem venda recente
+                                        </span>
+                                    {% elif p.precisa_repor %}
+                                        <span class="badge bg-danger-subtle text-danger">
+                                            Repôr
+                                        </span>
+                                    {% else %}
+                                        <span class="badge bg-success-subtle text-success">
+                                            OK
+                                        </span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="9" class="text-center text-muted py-4">
+                                Ainda não há produtos cadastrados ou movimentações de estoque.
+                            </td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
 </div>
 {% endblock %}
