@@ -1,85 +1,21 @@
 {% extends "base.html" %}
-{% block title %}Estoque &amp; reposição · MetriFy{% endblock %}
-{% block header_title %}Estoque, giro e reposição{% endblock %}
-
 {% block content %}
-<div class="card-soft mb-3">
-  <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
-    <div>
-      <div class="metric-label">Média de vendas &amp; cobertura</div>
-      <div class="metric-sub">
-        Considerando os últimos {{ janela_dias }} dias de vendas para cada produto.
-        Estoque mínimo desejado: {{ dias_minimos }} dias de cobertura.
-      </div>
-    </div>
-    <span class="badge-soft">Reposição automática visual</span>
-  </div>
-</div>
-
-<div class="card-soft mb-3">
-  <div class="table-responsive">
-    <table class="table table-sm table-dark-modern align-middle mb-0">
-      <thead>
-        <tr>
-          <th>Produto</th>
-          <th>SKU</th>
-          <th class="text-end">Estoque atual</th>
-          <th class="text-end">Média diária</th>
-          <th class="text-end">Média mensal</th>
-          <th class="text-end">Dias de cobertura</th>
-          <th class="text-center">Status</th>
-          <th style="width:180px;" class="text-end">Ajustar estoque</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for p in produtos %}
-          <tr>
-            <td>{{ p.nome }}</td>
-            <td>{{ p.sku or '-' }}</td>
-            <td class="text-end">{{ '%.0f'|format(p.estoque_atual) }}</td>
-            <td class="text-end">{{ '%.2f'|format(p.media_diaria) }}</td>
-            <td class="text-end">{{ '%.2f'|format(p.media_mensal) }}</td>
-            <td class="text-end">
-              {% if p.dias_cobertura is none %}
-                <span class="text-muted">Sem base</span>
-              {% else %}
-                {{ '%.1f'|format(p.dias_cobertura) }}
-              {% endif %}
-            </td>
-            <td class="text-center">
-              {% if p.dias_cobertura is none %}
-                <span class="badge-soft">Sem vendas recentes</span>
-              {% elif p.precisa_repor %}
-                <span class="badge-soft-danger">Reposição urgente (&lt; {{ dias_minimos }} dias)</span>
-              {% else %}
-                <span class="badge-soft-success">Cobertura OK</span>
-              {% endif %}
-            </td>
-            <td class="text-end">
-              <form method="post" action="{{ url_for('ajuste_estoque') }}" class="row gx-1 gy-1 justify-content-end">
-                <input type="hidden" name="produto_id" value="{{ p.id }}">
-                <div class="col-4">
-                  <select name="tipo" class="form-select form-select-sm">
-                    <option value="entrada">+ Entr.</option>
-                    <option value="saida">- Saída</option>
-                  </select>
-                </div>
-                <div class="col-4">
-                  <input type="number" name="quantidade" class="form-control form-control-sm" min="1" value="1">
-                </div>
-                <div class="col-4 d-grid">
-                  <button type="submit" class="btn btn-soft btn-sm">Aplicar</button>
-                </div>
-              </form>
-            </td>
-          </tr>
-        {% else %}
-          <tr>
-            <td colspan="8" class="text-center text-muted py-3">Nenhum produto cadastrado.</td>
-          </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-</div>
+<h3 class="mb-4">Estoque</h3>
+<table class="table table-striped">
+<thead><tr>
+<th>Produto</th><th>SKU</th><th>Estoque</th><th>Média Mensal</th><th>Dias Cobertura</th><th>Status</th>
+</tr></thead>
+<tbody>
+{% for p in produtos %}
+<tr>
+<td>{{ p.nome }}</td>
+<td>{{ p.sku }}</td>
+<td>{{ p.estoque_atual }}</td>
+<td>{{ p.media_mensal|round(1) }}</td>
+<td>{{ p.dias_cobertura|round(1) if p.dias_cobertura else '-' }}</td>
+<td>{% if p.precisa_repor %}<span class="badge bg-danger">Repor</span>{% else %}<span class="badge bg-success">Ok</span>{% endif %}</td>
+</tr>
+{% endfor %}
+</tbody>
+</table>
 {% endblock %}

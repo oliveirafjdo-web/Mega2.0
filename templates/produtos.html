@@ -1,51 +1,17 @@
 {% extends "base.html" %}
-{% block title %}Produtos · MetriFy{% endblock %}
-{% block header_title %}Catálogo de produtos{% endblock %}
-
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-3">
-  <div>
-    <div class="metric-label">Produtos</div>
-    <div class="metric-sub">Gerencie SKUs, custos e estoque inicial</div>
-  </div>
-  <a href="{{ url_for('novo_produto') }}" class="btn btn-soft">+ Novo produto</a>
-</div>
-
-<div class="card-soft">
-  <div class="table-responsive">
-    <table class="table table-sm table-dark-modern align-middle mb-0">
-      <thead>
-        <tr>
-          <th>Nome</th>
-          <th>SKU</th>
-          <th class="text-end">Custo unit.</th>
-          <th class="text-end">Preço sugerido</th>
-          <th class="text-end">Estoque atual</th>
-          <th style="width:120px;" class="text-end">Ações</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for p in produtos %}
-          <tr>
-            <td>{{ p.nome }}</td>
-            <td>{{ p.sku or '-' }}</td>
-            <td class="text-end">R$ {{ '%.2f'|format(p.custo_unitario or 0) }}</td>
-            <td class="text-end">R$ {{ '%.2f'|format(p.preco_venda_sugerido or 0) }}</td>
-            <td class="text-end">{{ p.estoque_atual }}</td>
-            <td class="text-end">
-              <a href="{{ url_for('editar_produto', produto_id=p.id) }}" class="btn btn-soft btn-sm">Editar</a>
-              <form action="{{ url_for('excluir_produto', produto_id=p.id) }}" method="post" class="d-inline" onsubmit="return confirm('Excluir este produto?');">
-                <button type="submit" class="btn btn-soft-danger btn-sm">Excluir</button>
-              </form>
-            </td>
-          </tr>
-        {% else %}
-          <tr>
-            <td colspan="6" class="text-center text-muted py-3">Nenhum produto cadastrado.</td>
-          </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-</div>
+<h3 class="mb-4">Produtos</h3>
+<table class="table table-bordered">
+<thead><tr><th>Nome</th><th>SKU</th><th>Custo</th><th>Estoque</th></tr></thead>
+<tbody>
+{% for p in produtos %}
+<tr>
+<td>{{ p.nome }}</td>
+<td>{{ p.sku }}</td>
+<td>{{ p.custo_unitario }}</td>
+<td>{{ p.estoque_atual }}</td>
+</tr>
+{% endfor %}
+</tbody>
+</table>
 {% endblock %}
