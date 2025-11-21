@@ -1,99 +1,244 @@
-jinja2.exceptions.TemplateSyntaxError: Encountered unknown tag 'now'.
-    ^^^^^^^^^^^^^^^^^^^^^^^^^
-    {% now 'local' as current_time %}
-  File "/app/templates/base.html", line 324, in template
-    raise rewrite_traceback_stack(source=source)
-  File "/usr/local/lib/python3.11/site-packages/jinja2/environment.py", line 942, in handle_exception
-    {% extends "base.html" %}
-  File "/app/templates/dashboard.html", line 1, in top-level template code
-    raise rewrite_traceback_stack(source=source)
-  File "/usr/local/lib/python3.11/site-packages/jinja2/environment.py", line 942, in handle_exception
-    self.environment.handle_exception()
-  File "/usr/local/lib/python3.11/site-packages/jinja2/environment.py", line 1295, in render
-         ^^^^^^^^^^^^^^^^^^^^^^^^
-    rv = template.render(context)
-  File "/usr/local/lib/python3.11/site-packages/flask/templating.py", line 131, in _render
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    return _render(app, template, context)
-  File "/usr/local/lib/python3.11/site-packages/flask/templating.py", line 150, in render_template
-           ^^^^^^^^^^^^^^^^
-    return render_template(
-  File "/app/app.py", line 344, in dashboard
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
-  File "/usr/local/lib/python3.11/site-packages/flask/app.py", line 902, in dispatch_request
-         ^^^^^^^^^^^^^^^^^^^^^^^
-    rv = self.dispatch_request()
-  File "/usr/local/lib/python3.11/site-packages/flask/app.py", line 917, in full_dispatch_request
-         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    rv = self.handle_user_exception(e)
-  File "/usr/local/lib/python3.11/site-packages/flask/app.py", line 919, in full_dispatch_request
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    response = self.full_dispatch_request()
-  File "/usr/local/lib/python3.11/site-packages/flask/app.py", line 1511, in wsgi_app
-Traceback (most recent call last):
-[2025-11-21 00:09:09,394] ERROR in app: Exception on / [GET]
-==> ///////////////////////////////////////////////////////////
-==> 
-==> Available at your primary URL https://metrifypostgres.onrender.com
-==> 
-==> ///////////////////////////////////////////////////////////
-==> 
-==> Your service is live 🎉
-jinja2.exceptions.TemplateSyntaxError: Encountered unknown tag 'now'.
-    ^^^^^^^^^^^^^^^^^^^^^^^^^
-    {% now 'local' as current_time %}
-  File "/app/templates/base.html", line 324, in template
-    raise rewrite_traceback_stack(source=source)
-  File "/usr/local/lib/python3.11/site-packages/jinja2/environment.py", line 942, in handle_exception
-    {% extends "base.html" %}
-  File "/app/templates/dashboard.html", line 1, in top-level template code
-    raise rewrite_traceback_stack(source=source)
-  File "/usr/local/lib/python3.11/site-packages/jinja2/environment.py", line 942, in handle_exception
-    self.environment.handle_exception()
-  File "/usr/local/lib/python3.11/site-packages/jinja2/environment.py", line 1295, in render
-         ^^^^^^^^^^^^^^^^^^^^^^^^
-    rv = template.render(context)
-  File "/usr/local/lib/python3.11/site-packages/flask/templating.py", line 131, in _render
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    return _render(app, template, context)
-  File "/usr/local/lib/python3.11/site-packages/flask/templating.py", line 150, in render_template
-           ^^^^^^^^^^^^^^^^
-    return render_template(
-  File "/app/app.py", line 344, in dashboard
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
-  File "/usr/local/lib/python3.11/site-packages/flask/app.py", line 902, in dispatch_request
-         ^^^^^^^^^^^^^^^^^^^^^^^
-    rv = self.dispatch_request()
-  File "/usr/local/lib/python3.11/site-packages/flask/app.py", line 917, in full_dispatch_request
-         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    rv = self.handle_user_exception(e)
-  File "/usr/local/lib/python3.11/site-packages/flask/app.py", line 919, in full_dispatch_request
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    response = self.full_dispatch_request()
-  File "/usr/local/lib/python3.11/site-packages/flask/app.py", line 1511, in wsgi_app
-Traceback (most recent call last):
-[2025-11-21 00:09:06,642] ERROR in app: Exception on / [HEAD]
-[2025-11-21 00:09:01 +0000] [6] [INFO] Booting worker with pid: 6
-[2025-11-21 00:09:01 +0000] [1] [INFO] Using worker: sync
-[2025-11-21 00:09:01 +0000] [1] [INFO] Listening at: http://0.0.0.0:5000 (1)
-[2025-11-21 00:09:01 +0000] [1] [INFO] Starting gunicorn 23.0.0
-==> Deploying...
-Upload succeeded
-Pushing image to registry...
-#13 DONE 2.3s
-#13 writing cache image manifest sha256:f86d312bf8d7f1c9e08348cc0be0109ac1711653c6e1cc8faef33cb799f72b50 0.3s done
-#13 writing cache image manifest sha256:f86d312bf8d7f1c9e08348cc0be0109ac1711653c6e1cc8faef33cb799f72b50
-#13 preparing build cache for export
-#13 exporting cache to client directory
-#12 DONE 4.1s
-#12 exporting config sha256:2153041d4a18c0d6767dfbb8adcf16421ef2a02b5e8044a6a85d507f665fd57d 0.6s done
-#12 exporting config sha256:2153041d4a18c0d6767dfbb8adcf16421ef2a02b5e8044a6a85d507f665fd57d
-#12 exporting manifest sha256:1156eeab76e595503b5c50126269a43a575823aba1c02582a5b55602279315c0 0.4s done
-#12 exporting manifest sha256:1156eeab76e595503b5c50126269a43a575823aba1c02582a5b55602279315c0
-#12 exporting layers 2.4s done
-#12 exporting layers
-#12 exporting to docker image format
-#11 DONE 10.6s
-#11 [5/5] COPY . .
+{% extends "base.html" %}
+{% block content %}
+
+<style>
+    .section-title {
+        font-size: 22px;
+        font-weight: 600;
+        margin-bottom: 20px;
+    }
+
+    .filter-row {
+        display: flex;
+        gap: 15px;
+        align-items: flex-end;
+        margin-bottom: 25px;
+    }
+
+    .filter-field {
+        display: flex;
+        flex-direction: column;
+        width: 180px;
+    }
+
+    .filter-field input {
+        padding: 7px 10px;
+        font-size: 14px;
+        border-radius: 6px;
+        border: 1px solid #ccc;
+    }
+
+    .btn-filter {
+        padding: 9px 16px;
+        background-color: #2979ff;
+        color: white;
+        border-radius: 6px;
+        border: none;
+        font-size: 15px;
+        cursor: pointer;
+    }
+
+    .btn-clear {
+        padding: 9px 16px;
+        background-color: #777;
+        color: white;
+        border-radius: 6px;
+        font-size: 15px;
+        text-decoration: none;
+    }
+
+    .totals-box {
+        min-width: 240px;
+        background: rgba(255,255,255,0.12);
+        border-radius: 12px;
+        padding: 20px;
+        color: white;
+        backdrop-filter: blur(8px);
+    }
+
+    .totals-box p {
+        margin: 8px 0;
+        font-size: 15px;
+    }
+
+    .manual-box {
+        background: #ffffff10;
+        border-radius: 12px;
+        padding: 20px;
+        margin-top: 25px;
+    }
+
+    .manual-row {
+        display: flex;
+        gap: 12px;
+        margin-top: 10px;
+    }
+
+    .manual-row input, .manual-row select {
+        padding: 8px 10px;
+        border-radius: 6px;
+        border: 1px solid #ccc;
+        width: 160px;
+    }
+
+    .btn-add {
+        padding: 9px 18px;
+        background: #00c853;
+        border: none;
+        color: white;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 15px;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 25px;
+        background: white;
+        border-radius: 10px;
+        overflow: hidden;
+    }
+
+    table thead {
+        background: #1e293b;
+        color: white;
+    }
+
+    table td, table th {
+        padding: 10px;
+        font-size: 14px;
+        border-bottom: 1px solid #eee;
+    }
+
+    .actions button {
+        padding: 4px 10px;
+        border-radius: 6px;
+        border: none;
+        cursor: pointer;
+        font-size: 14px;
+    }
+
+    .btn-edit { background: #2979ff; color: white; }
+    .btn-del { background: #d50000; color: white; }
+</style>
+
+
+
+<h2 class="section-title">Vendas & Lotes de importação</h2>
+
+<form method="get">
+    <div class="filter-row">
+
+        <div class="filter-field">
+            <label>Data inicial</label>
+            <input type="date" name="data_inicio" value="{{ data_inicio }}">
+        </div>
+
+        <div class="filter-field">
+            <label>Data final</label>
+            <input type="date" name="data_fim" value="{{ data_fim }}">
+        </div>
+
+        <button type="submit" class="btn-filter">Filtrar</button>
+        <a href="{{ url_for('lista_vendas') }}" class="btn-clear">Limpar</a>
+
+        <div class="totals-box">
+            <p><strong>Qtd. total</strong><br> {{ totais.qtd }}</p>
+            <p><strong>Receita bruta</strong><br> R$ {{ "%.2f"|format(totais.receita) }}</p>
+            <p><strong>Custo produtos</strong><br> R$ {{ "%.2f"|format(totais.custo) }}</p>
+            <p><strong>Comissão estimada ML</strong><br> R$ {{ "%.2f"|format(totais.comissao) }}</p>
+            <p><strong>Margem contrib.</strong><br> R$ {{ "%.2f"|format(totais.margem) }}</p>
+
+            <hr style="opacity: .3; margin: 10px 0;">
+
+            <p><strong>Lucro líquido (estimado)</strong><br>
+                R$ {{ "%.2f"|format(
+                    totais.receita
+                    - totais.custo
+                    - totais.comissao
+                ) }}
+            </p>
+        </div>
+
+    </div>
+</form>
+
+
+
+<div class="manual-box">
+    <h3>Registrar venda manual</h3>
+    <form method="post" action="{{ url_for('criar_venda_manual') }}">
+        <div class="manual-row">
+            <select name="produto_id" required>
+                <option value="">Selecione...</option>
+                {% for p in produtos %}
+                    <option value="{{ p.id }}">{{ p.nome }}</option>
+                {% endfor %}
+            </select>
+
+            <input type="number" name="quantidade" placeholder="Qtd" required>
+            <input type="number" step="0.01" name="preco_venda_unitario" placeholder="Preço unit. (R$)" required>
+            <input type="date" name="data_venda">
+
+            <button class="btn-add" type="submit">+ Adicionar venda</button>
+        </div>
+    </form>
+</div>
+
+
+
+
+<table>
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Data</th>
+            <th>Produto</th>
+            <th>Qtd</th>
+            <th>Preço unit.</th>
+            <th>Receita</th>
+            <th>Custo</th>
+            <th>Margem</th>
+            <th>Origem</th>
+            <th>Lote</th>
+            <th>Ações</th>
+        </tr>
+    </thead>
+    <tbody>
+
+        {% for v in vendas %}
+        <tr>
+            <td>{{ v.id }}</td>
+            <td>{{ v.data_venda }}</td>
+            <td>{{ v.nome }}</td>
+            <td>{{ v.quantidade }}</td>
+            <td>R$ {{ "%.2f"|format(v.preco_venda_unitario) }}</td>
+            <td>R$ {{ "%.2f"|format(v.receita_total) }}</td>
+            <td>R$ {{ "%.2f"|format(v.custo_total) }}</td>
+            <td>R$ {{ "%.2f"|format(v.margem_contribuicao) }}</td>
+            <td>{{ v.origem }}</td>
+            <td>{{ v.lote_importacao }}</td>
+
+            <td class="actions">
+                <form action="{{ url_for('editar_venda', venda_id=v.id) }}" method="get" style="display:inline;">
+                    <button class="btn-edit">Editar</button>
+                </form>
+
+                <form action="{{ url_for('excluir_venda', venda_id=v.id) }}" method="post" style="display:inline;">
+                    <button class="btn-del" onclick="return confirm('Excluir venda?')">Del</button>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+
+<div style="margin-top: 15px;">
+    <a href="{{ url_for('exportar_consolidado') }}" class="btn-filter" style="background:#00bfa5;">
+        Exportar consolidado
+    </a>
+</div>
+
+{% endblock %}
