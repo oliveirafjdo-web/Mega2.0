@@ -1,154 +1,115 @@
 {% extends "base.html" %}
-{% block title %}Dashboard · MetriFy{% endblock %}
-{% block header_title %}Dashboard financeiro{% endblock %}
 
 {% block content %}
-<div class="card-soft mb-3">
-  <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
-    <div>
-      <div class="metric-label">Resumo geral</div>
-      <div class="metric-sub">Baseado em todas as vendas importadas e manuais</div>
-    </div>
-    {% if cfg %}
-      <div class="d-flex gap-2 flex-wrap">
-        <span class="badge-soft">Imposto: {{ '%.2f'|format(cfg.imposto_percent) }}%</span>
-        <span class="badge-soft">Despesas: {{ '%.2f'|format(cfg.despesas_percent) }}%</span>
-      </div>
+<h1>Dashboard</h1>
+
+<div class="cards-grid">
+
+  <!-- LINHA 1 -->
+  <div class="card">
+    <h3>Total de Produtos</h3>
+    <p>{{ total_produtos }}</p>
+  </div>
+
+  <div class="card">
+    <h3>Estoque Total</h3>
+    <p>{{ estoque_total }}</p>
+  </div>
+
+  <div class="card">
+    <h3>Receita Bruta Total</h3>
+    <p>R$ {{ "%.2f"|format(receita_total) }}</p>
+  </div>
+
+  <div class="card">
+    <h3>Receita Líquida Total</h3>
+    <p>R$ {{ "%.2f"|format(receita_liquida_total) }}</p>
+  </div>
+
+  <!-- LINHA 2 -->
+  <div class="card">
+    <h3>Custo Total de Produtos</h3>
+    <p>R$ {{ "%.2f"|format(custo_total) }}</p>
+  </div>
+
+  <div class="card">
+    <h3>Comissão Total (estimada)</h3>
+    <p>R$ {{ "%.2f"|format(comissao_total) }}</p>
+  </div>
+
+  <div class="card">
+    <h3>Imposto Total</h3>
+    <p>R$ {{ "%.2f"|format(imposto_total) }}</p>
+  </div>
+
+  <div class="card">
+    <h3>Despesas Totais</h3>
+    <p>R$ {{ "%.2f"|format(despesas_total) }}</p>
+  </div>
+
+  <!-- LINHA 3 -->
+  <div class="card destaque">
+    <h3>Lucro Líquido Total</h3>
+    <p>R$ {{ "%.2f"|format(lucro_liquido_total) }}</p>
+  </div>
+
+  <div class="card">
+    <h3>Margem Líquida</h3>
+    <p>{{ "%.2f"|format(margem_liquida_percent) }}%</p>
+  </div>
+
+  <div class="card">
+    <h3>Margem Média de Contribuição</h3>
+    <p>{{ "%.2f"|format(margem_media) }}%</p>
+  </div>
+
+  <div class="card">
+    <h3>Ticket Médio</h3>
+    <p>R$ {{ "%.2f"|format(ticket_medio) }}</p>
+  </div>
+
+  <!-- LINHA 4 - PRODUTOS DE DESTAQUE -->
+  <div class="card largo">
+    <h3>Produto mais vendido</h3>
+    {% if produto_mais_vendido %}
+      <p><strong>{{ produto_mais_vendido.nome }}</strong></p>
+      <p>Qtd: {{ produto_mais_vendido.qtd }}</p>
+    {% else %}
+      <p>Sem vendas registradas.</p>
     {% endif %}
   </div>
+
+  <div class="card largo">
+    <h3>Maior margem de contribuição</h3>
+    {% if produto_maior_lucro %}
+      <p><strong>{{ produto_maior_lucro.nome }}</strong></p>
+      <p>Margem: R$ {{ "%.2f"|format(produto_maior_lucro.lucro) }}</p>
+    {% else %}
+      <p>Sem vendas registradas.</p>
+    {% endif %}
+  </div>
+
+  <div class="card largo">
+    <h3>Pior margem de contribuição</h3>
+    {% if produto_pior_margem %}
+      <p><strong>{{ produto_pior_margem.nome }}</strong></p>
+      <p>Margem: R$ {{ "%.2f"|format(produto_pior_margem.margem) }}</p>
+    {% else %}
+      <p>Sem vendas registradas.</p>
+    {% endif %}
+  </div>
+
+  <!-- CONFIGURAÇÕES -->
+  <div class="card largo">
+    <h3>Configurações atuais</h3>
+    {% if cfg %}
+      <p>Imposto: {{ "%.2f"|format(cfg.imposto_percent or 0) }}%</p>
+      <p>Despesas: {{ "%.2f"|format(cfg.despesas_percent or 0) }}%</p>
+    {% else %}
+      <p>Imposto e despesas não configurados.</p>
+    {% endif %}
+  </div>
+
 </div>
 
-<div class="row g-3 mb-3">
-  <div class="col-6 col-md-3">
-    <div class="card-soft-compact h-100">
-      <div class="metric-label">Produtos ativos</div>
-      <div class="metric-value">{{ total_produtos }}</div>
-      <div class="metric-sub">Itens cadastrados no catálogo</div>
-    </div>
-  </div>
-  <div class="col-6 col-md-3">
-    <div class="card-soft-compact h-100">
-      <div class="metric-label">Estoque total</div>
-      <div class="metric-value">{{ estoque_total }}</div>
-      <div class="metric-sub">Unidades disponíveis</div>
-    </div>
-  </div>
-  <div class="col-6 col-md-3">
-    <div class="card-soft-compact h-100">
-      <div class="metric-label">Receita bruta</div>
-      <div class="metric-value">R$ {{ '%.2f'|format(receita_total) }}</div>
-      <div class="metric-sub">Antes de taxas, custos e impostos</div>
-    </div>
-  </div>
-  <div class="col-6 col-md-3">
-    <div class="card-soft-compact h-100">
-      <div class="metric-label">Receita líquida</div>
-      <div class="metric-value">R$ {{ '%.2f'|format(receita_liquida_total) }}</div>
-      <div class="metric-sub">Após comissão ML, imposto e despesas</div>
-    </div>
-  </div>
-</div>
-
-<div class="row g-3 mb-3">
-  <div class="col-6 col-md-3">
-    <div class="card-soft-compact h-100">
-      <div class="metric-label">Custo de produtos</div>
-      <div class="metric-value">R$ {{ '%.2f'|format(custo_total) }}</div>
-      <div class="metric-sub">Somatório do custo das unidades vendidas</div>
-    </div>
-  </div>
-  <div class="col-6 col-md-3">
-    <div class="card-soft-compact h-100">
-      <div class="metric-label">Comissão Mercado Livre</div>
-      <div class="metric-value">R$ {{ '%.2f'|format(comissao_total) }}</div>
-      <div class="metric-sub">Tarifa de vendas e impostos (BRL)</div>
-    </div>
-  </div>
-  <div class="col-6 col-md-3">
-    <div class="card-soft-compact h-100">
-      <div class="metric-label">Impostos estimados</div>
-      <div class="metric-value">R$ {{ '%.2f'|format(imposto_total) }}</div>
-      <div class="metric-sub">Aplicado sobre a receita bruta</div>
-    </div>
-  </div>
-  <div class="col-6 col-md-3">
-    <div class="card-soft-compact h-100">
-      <div class="metric-label">Outras despesas</div>
-      <div class="metric-value">R$ {{ '%.2f'|format(despesas_total) }}</div>
-      <div class="metric-sub">Percentual configurado em "Configurações"</div>
-    </div>
-  </div>
-</div>
-
-<div class="row g-3 mb-4">
-  <div class="col-12 col-md-4">
-    <div class="card-soft-compact h-100">
-      <div class="metric-label">Lucro líquido total</div>
-      <div class="metric-value">R$ {{ '%.2f'|format(lucro_liquido_total) }}</div>
-      <div class="metric-sub">Mesmo cálculo do Relatório de Lucro</div>
-      <div class="mt-2">
-        <span class="badge-soft-success">Margem líquida: {{ '%.2f'|format(margem_liquida_percent) }}%</span>
-      </div>
-    </div>
-  </div>
-  <div class="col-6 col-md-4">
-    <div class="card-soft-compact h-100">
-      <div class="metric-label">Margem de contribuição média</div>
-      <div class="metric-value">{{ '%.2f'|format(margem_media) }}%</div>
-      <div class="metric-sub">Antes de impostos e despesas gerais</div>
-    </div>
-  </div>
-  <div class="col-6 col-md-4">
-    <div class="card-soft-compact h-100">
-      <div class="metric-label">Ticket médio</div>
-      <div class="metric-value">R$ {{ '%.2f'|format(ticket_medio) }}</div>
-      <div class="metric-sub">Preço médio por unidade vendida</div>
-    </div>
-  </div>
-</div>
-
-<div class="row g-3">
-  <div class="col-12 col-md-4">
-    <div class="card-soft h-100">
-      <div class="d-flex justify-content-between align-items-center mb-2">
-        <div class="metric-label">Produto mais vendido</div>
-        <span class="badge-soft">Top volume</span>
-      </div>
-      {% if produto_mais_vendido %}
-        <div class="metric-value" style="font-size:16px;">{{ produto_mais_vendido[0] }}</div>
-        <div class="metric-sub mt-1">Quantidade: {{ produto_mais_vendido[1] }}</div>
-      {% else %}
-        <div class="metric-sub">Sem vendas registradas ainda.</div>
-      {% endif %}
-    </div>
-  </div>
-  <div class="col-12 col-md-4">
-    <div class="card-soft h-100">
-      <div class="d-flex justify-content-between align-items-center mb-2">
-        <div class="metric-label">Maior lucro</div>
-        <span class="badge-soft-success">Top lucro</span>
-      </div>
-      {% if produto_maior_lucro %}
-        <div class="metric-value" style="font-size:16px;">{{ produto_maior_lucro[0] }}</div>
-        <div class="metric-sub mt-1">Lucro: R$ {{ '%.2f'|format(produto_maior_lucro[1]) }}</div>
-      {% else %}
-        <div class="metric-sub">Sem vendas registradas ainda.</div>
-      {% endif %}
-    </div>
-  </div>
-  <div class="col-12 col-md-4">
-    <div class="card-soft h-100">
-      <div class="d-flex justify-content-between align-items-center mb-2">
-        <div class="metric-label">Pior margem</div>
-        <span class="badge-soft-danger">Atenção</span>
-      </div>
-      {% if produto_pior_margem %}
-        <div class="metric-value" style="font-size:16px;">{{ produto_pior_margem[0] }}</div>
-        <div class="metric-sub mt-1">Margem contribuição: R$ {{ '%.2f'|format(produto_pior_margem[1]) }}</div>
-      {% else %}
-        <div class="metric-sub">Sem vendas registradas ainda.</div>
-      {% endif %}
-    </div>
-  </div>
-</div>
 {% endblock %}
