@@ -720,8 +720,8 @@ def estoque_view():
     - precisa_repor: True se dias_cobertura < dias_minimos
     """
 
-    JANELA_DIAS = 30      # quantos dias olhar pra trás nas vendas
-    DIAS_MINIMOS = 15     # estoque mínimo desejado em dias
+    JANELA_DIAS = 60      # quantos dias olhar pra trás nas vendas
+    DIAS_MINIMOS = 30     # estoque mínimo desejado em dias
 
     hoje = datetime.now()
 
@@ -772,12 +772,17 @@ def estoque_view():
 
         vendas_por_produto[pid] = vendas_por_produto.get(pid, 0) + qtd
 
-    # Monta lista enriquecida de produtos
+    # Monta lista enriquecida de produtos + totais de estoque
     produtos_enriquecidos = []
+    total_unidades_estoque = 0.0
+    total_custo_estoque = 0.0
+
     for p in produtos_rows:
         pid = p["id"]
         estoque_atual = float(p["estoque_atual"] or 0)
         qtd_periodo = float(vendas_por_produto.get(pid, 0))
+        custo_unitario = float(p["custo_unitario"] or 0)
+        custo_estoque = estoque_atual * custo_unitario
 
         media_diaria = qtd_periodo / JANELA_DIAS if JANELA_DIAS > 0 else 0.0
         media_mensal = media_diaria * 30.0
@@ -797,7 +802,8 @@ def estoque_view():
                 "nome": p["nome"],
                 "sku": p["sku"],
                 "estoque_atual": estoque_atual,
-                "custo_unitario": float(p["custo_unitario"] or 0),
+                "custo_unitario": custo_unitario,
+                "custo_estoque": custo_estoque,
                 "media_diaria": media_diaria,
                 "media_mensal": media_mensal,
                 "dias_cobertura": dias_cobertura,
@@ -805,11 +811,16 @@ def estoque_view():
             }
         )
 
+        total_unidades_estoque += estoque_atual
+        total_custo_estoque += custo_estoque
+
     return render_template(
         "estoque.html",
         produtos=produtos_enriquecidos,
         janela_dias=JANELA_DIAS,
         dias_minimos=DIAS_MINIMOS,
+        total_unidades_estoque=total_unidades_estoque,
+        total_custo_estoque=total_custo_estoque,
     )
 
 
