@@ -1,33 +1,29 @@
 {% extends "base.html" %}
-{% block title %}Importar vendas ML · MetriFy{% endblock %}
-{% block header_title %}Importação Mercado Livre{% endblock %}
+
+{% block title %}Importar vendas ML • MetriFy{% endblock %}
+{% block page_icon %}<i class="bi bi-cloud-arrow-up text-primary"></i>{% endblock %}
+{% block page_title %}Importar vendas do Mercado Livre{% endblock %}
 
 {% block content %}
-<div class="card-soft mb-3">
-  <div class="metric-label mb-1">Importar planilha oficial do Mercado Livre</div>
-  <div class="metric-sub">
-    Use a aba <strong>"Vendas BR"</strong> exportada do painel do Mercado Livre. 
-    O sistema vai ler SKU / Título, total (BRL) e tarifa de venda e impostos.
+<div class="card-glass">
+  <div class="card-glass-header">
+    <div class="card-glass-title">
+      <i class="bi bi-file-earmark-spreadsheet"></i> Planilha "Vendas BR"
+    </div>
   </div>
-</div>
 
-<div class="card-soft mb-3">
-  <form method="post" enctype="multipart/form-data" class="row g-3 align-items-end">
-    <div class="col-12 col-md-8">
-      <label class="form-label small mb-1">Arquivo XLSX</label>
-      <input type="file" name="arquivo" class="form-control" accept=".xls,.xlsx" required>
+  <form method="post" enctype="multipart/form-data">
+    <div class="mb-3">
+      <label class="form-label" for="arquivo">Arquivo XLSX exportado do Mercado Livre</label>
+      <input type="file" class="form-control" id="arquivo" name="arquivo" accept=".xls,.xlsx" required>
+      <div class="text-soft mt-1">
+        Use a aba <strong>Vendas BR</strong> no layout padrão do Mercado Livre.  
+        A coluna <strong>"Tarifa de venda e impostos (BRL)"</strong> será usada como comissão.
+      </div>
     </div>
-    <div class="col-12 col-md-4">
-      <button type="submit" class="btn btn-soft w-100 mt-3 mt-md-0">Importar vendas</button>
-    </div>
+    <button type="submit" class="btn btn-primary">
+      <i class="bi bi-cloud-arrow-up"></i> Importar
+    </button>
   </form>
-</div>
-
-<div class="card-soft">
-  <div class="metric-label mb-1">Precisa de um modelo manual?</div>
-  <div class="metric-sub mb-2">
-    Você também pode lançar vendas com base em um template próprio preenchido manualmente.
-  </div>
-  <a href="{{ url_for('exportar_template') }}" class="btn btn-soft btn-sm">Baixar template de consolidação</a>
 </div>
 {% endblock %}
