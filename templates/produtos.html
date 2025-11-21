@@ -1,49 +1,69 @@
 {% extends "base.html" %}
-{% block title %}Produtos · MetriFy{% endblock %}
-{% block header_title %}Catálogo de produtos{% endblock %}
+
+{% block title %}Produtos • MetriFy{% endblock %}
+{% block page_icon %}<i class="bi bi-box-seam text-primary"></i>{% endblock %}
+{% block page_title %}Produtos cadastrados{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-3">
-  <div>
-    <div class="metric-label">Produtos</div>
-    <div class="metric-sub">Gerencie SKUs, custos e estoque inicial</div>
+<div class="card-glass mb-3">
+  <div class="card-glass-header">
+    <div class="card-glass-title">
+      <i class="bi bi-plus-circle"></i> Novo produto
+    </div>
   </div>
-  <a href="{{ url_for('novo_produto') }}" class="btn btn-soft">+ Novo produto</a>
+  <a href="{{ url_for('novo_produto') }}" class="btn btn-primary">
+    <i class="bi bi-plus-lg"></i> Cadastrar produto
+  </a>
 </div>
 
-<div class="card-soft">
+<div class="card-glass">
+  <div class="card-glass-header">
+    <div class="card-glass-title">
+      <i class="bi bi-table"></i> Lista de produtos
+    </div>
+    <span class="badge-soft">{{ produtos|length }} itens</span>
+  </div>
+
   <div class="table-responsive">
-    <table class="table table-sm table-dark-modern align-middle mb-0">
+    <table class="table table-sm align-middle mb-0">
       <thead>
         <tr>
+          <th>ID</th>
           <th>Nome</th>
           <th>SKU</th>
-          <th class="text-end">Custo unit.</th>
-          <th class="text-end">Preço sugerido</th>
+          <th class="text-end">Custo unit. (R$)</th>
+          <th class="text-end">Preço sugerido (R$)</th>
           <th class="text-end">Estoque atual</th>
-          <th style="width:120px;" class="text-end">Ações</th>
+          <th class="text-end">Ações</th>
         </tr>
       </thead>
       <tbody>
-        {% for p in produtos %}
-          <tr>
-            <td>{{ p.nome }}</td>
-            <td>{{ p.sku or '-' }}</td>
-            <td class="text-end">R$ {{ '%.2f'|format(p.custo_unitario or 0) }}</td>
-            <td class="text-end">R$ {{ '%.2f'|format(p.preco_venda_sugerido or 0) }}</td>
-            <td class="text-end">{{ p.estoque_atual }}</td>
-            <td class="text-end">
-              <a href="{{ url_for('editar_produto', produto_id=p.id) }}" class="btn btn-soft btn-sm">Editar</a>
-              <form action="{{ url_for('excluir_produto', produto_id=p.id) }}" method="post" class="d-inline" onsubmit="return confirm('Excluir este produto?');">
-                <button type="submit" class="btn btn-soft-danger btn-sm">Excluir</button>
-              </form>
-            </td>
-          </tr>
+        {% if produtos %}
+          {% for p in produtos %}
+            <tr>
+              <td>{{ p.id }}</td>
+              <td>{{ p.nome }}</td>
+              <td><span class="badge bg-dark badge-chip">{{ p.sku or '-' }}</span></td>
+              <td class="text-end">R$ {{ '%.2f'|format(p.custo_unitario) }}</td>
+              <td class="text-end">R$ {{ '%.2f'|format(p.preco_venda_sugerido) }}</td>
+              <td class="text-end">{{ p.estoque_atual }}</td>
+              <td class="text-end">
+                <a href="{{ url_for('editar_produto', produto_id=p.id) }}" class="btn btn-sm btn-outline-light">
+                  <i class="bi bi-pencil"></i>
+                </a>
+                <form method="post" action="{{ url_for('excluir_produto', produto_id=p.id) }}" class="d-inline" onsubmit="return confirm('Excluir este produto?');">
+                  <button type="submit" class="btn btn-sm btn-outline-danger">
+                    <i class="bi bi-trash"></i>
+                  </button>
+                </form>
+              </td>
+            </tr>
+          {% endfor %}
         {% else %}
           <tr>
-            <td colspan="6" class="text-center text-muted py-3">Nenhum produto cadastrado.</td>
+            <td colspan="7" class="text-center text-soft py-3">Nenhum produto cadastrado ainda.</td>
           </tr>
-        {% endfor %}
+        {% endif %}
       </tbody>
     </table>
   </div>
