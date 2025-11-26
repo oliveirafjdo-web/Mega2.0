@@ -710,20 +710,26 @@ def exportar_template():
 
 
 # ---------------- ESTOQUE / AJUSTES ----------------
+# ---------------- ESTOQUE / AJUSTES ----------------
 @app.route("/estoque")
 def estoque_view():
     """Visão de estoque com médias de venda e previsão de cobertura.
 
-    - média_diaria: média de unidades vendidas por dia nos últimos N dias
-    - média_mensal: média_diaria * 30
+    NOVO CRITÉRIO:
+    - média_diaria: média de unidades vendidas por dia no mês corrente
+      (do 1º dia do mês até a data atual)
+    - média_mensal: média_diaria * 30  (projeção de venda mensal)
     - dias_cobertura: estoque_atual / média_diaria
     - precisa_repor: True se dias_cobertura < dias_minimos
     """
 
-    JANELA_DIAS = 30      # quantos dias olhar pra trás nas vendas
     DIAS_MINIMOS = 15     # estoque mínimo desejado em dias
 
     hoje = datetime.now()
+    # início do mês atual (0h00)
+    inicio_mes = hoje.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    # dias corridos do mês até hoje (1 incluído)
+    dias_corridos_mes = (hoje.date() - inicio_mes.date()).days + 1
 
     with engine.connect() as conn:
         # Produtos
@@ -746,7 +752,7 @@ def estoque_view():
             )
         ).mappings().all()
 
-    # Soma de vendas por produto dentro da janela (últimos JANELA_DIAS)
+    # Soma de vendas por produto dentro do MÊS ATUAL
     vendas_por_produto = {}
 
     for v in vendas_rows:
@@ -765,9 +771,8 @@ def estoque_view():
             except Exception:
                 continue
 
-        # só considera vendas dentro da janela
-        delta = hoje - dt
-        if delta.days < 0 or delta.days > JANELA_DIAS:
+        # só considera vendas entre o início do mês e hoje
+        if dt < inicio_mes or dt > hoje:
             continue
 
         vendas_por_produto[pid] = vendas_por_produto.get(pid, 0) + qtd
@@ -780,17 +785,21 @@ def estoque_view():
     for p in produtos_rows:
         pid = p["id"]
         estoque_atual = float(p["estoque_atual"] or 0)
-        qtd_periodo = float(vendas_por_produto.get(pid, 0))
+        qtd_mes = float(vendas_por_produto.get(pid, 0))
         custo_unitario = float(p["custo_unitario"] or 0)
         custo_estoque = estoque_atual * custo_unitario
 
-        media_diaria = qtd_periodo / JANELA_DIAS if JANELA_DIAS > 0 else 0.0
+        # média diária no mês corrente
+        media_diaria = (
+            qtd_mes / dias_corridos_mes if dias_corridos_mes > 0 else 0.0
+        )
+        # projeção mensal (média mensal)
         media_mensal = media_diaria * 30.0
 
         if media_diaria > 0:
             dias_cobertura = estoque_atual / media_diaria
         else:
-            dias_cobertura = None  # sem vendas recentes, não dá pra estimar
+            dias_cobertura = None  # sem vendas no mês, não dá pra estimar
 
         precisa_repor = (
             dias_cobertura is not None and dias_cobertura < DIAS_MINIMOS
@@ -817,7 +826,7 @@ def estoque_view():
     return render_template(
         "estoque.html",
         produtos=produtos_enriquecidos,
-        janela_dias=JANELA_DIAS,
+        janela_dias=dias_corridos_mes,  # agora mostra os dias corridos do mês
         dias_minimos=DIAS_MINIMOS,
         total_unidades_estoque=total_unidades_estoque,
         total_custo_estoque=total_custo_estoque,
