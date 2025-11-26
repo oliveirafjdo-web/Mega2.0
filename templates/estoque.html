@@ -75,14 +75,18 @@
                         </div>
                         <div class="mb-1">
                             <span class="badge bg-light text-dark me-2">
-                                Janela: últimos {{ janela_dias }} dias
+                                Período: mês atual ({{ janela_dias }} dias corridos)
                             </span>
                             <span class="badge bg-light text-dark">
                                 Estoque mínimo: {{ dias_minimos }} dias
                             </span>
                         </div>
                         <small class="text-muted d-block">
-                            A média diária de vendas é calculada dentro da janela de {{ janela_dias }} dias.
+                            A média diária de vendas é calculada somando todas as vendas do mês atual
+                            (do dia 1 até hoje) e dividindo por {{ janela_dias }} dias corridos.
+                        </small>
+                        <small class="text-muted d-block">
+                            A <strong>venda mensal média</strong> é a projeção dessa média diária multiplicada por 30.
                         </small>
                         <small class="text-muted">
                             Produtos com cobertura abaixo de {{ dias_minimos }} dias aparecem como
@@ -114,7 +118,7 @@
                         <th class="text-end">Custo unitário (R$)</th>
                         <th class="text-end">Custo em estoque (R$)</th>
                         <th class="text-end">Média diária (un)</th>
-                        <th class="text-end">Média mensal (un)</th>
+                        <th class="text-end">Venda mensal média (un)</th>
                         <th class="text-end">Cobertura (dias)</th>
                         <th class="text-center">Situação</th>
                     </tr>
@@ -150,7 +154,7 @@
                                 <td class="text-center">
                                     {% if p.dias_cobertura is none %}
                                         <span class="badge bg-secondary-subtle text-secondary">
-                                            Sem venda recente
+                                            Sem venda neste mês
                                         </span>
                                     {% elif p.precisa_repor %}
                                         <span class="badge bg-danger-subtle text-danger">
