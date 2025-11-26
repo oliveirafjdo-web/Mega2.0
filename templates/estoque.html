@@ -17,6 +17,7 @@
 
     <!-- Cards de totais de estoque -->
     <div class="row g-3 mb-4">
+
         <!-- Total unidades -->
         <div class="col-12 col-md-6 col-xl-4">
             <div class="card shadow-sm border-0 h-100">
@@ -73,6 +74,7 @@
                         <div class="text-muted text-uppercase small mb-1">
                             Parâmetros de análise
                         </div>
+
                         <div class="mb-1">
                             <span class="badge bg-light text-dark me-2">
                                 Período: mês atual ({{ janela_dias }} dias corridos)
@@ -81,18 +83,22 @@
                                 Estoque mínimo: {{ dias_minimos }} dias
                             </span>
                         </div>
+
                         <small class="text-muted d-block">
-                            A média diária de vendas é calculada somando todas as vendas do mês atual
-                            (do dia 1 até hoje) e dividindo por {{ janela_dias }} dias corridos.
+                            A média diária é calculada somando todas as vendas do mês atual (do dia 1 até hoje)
+                            dividido por {{ janela_dias }} dias corridos.
                         </small>
+
                         <small class="text-muted d-block">
-                            A <strong>venda mensal média</strong> é a projeção dessa média diária multiplicada por 30.
+                            A <strong>venda mensal média</strong> é a projeção dessa média diária × 30.
                         </small>
+
                         <small class="text-muted">
-                            Produtos com cobertura abaixo de {{ dias_minimos }} dias aparecem como
+                            Produtos com cobertura abaixo de {{ dias_minimos }} dias aparecerão como
                             <strong>"Repôr"</strong>.
                         </small>
                     </div>
+
                     <div class="ms-3 d-flex align-items-center">
                         <div class="rounded-circle bg-info bg-opacity-10 p-3">
                             <i class="bi bi-info-circle text-info fs-4"></i>
@@ -101,6 +107,7 @@
                 </div>
             </div>
         </div>
+
     </div>
 
     <!-- Tabela de estoque -->
@@ -108,6 +115,7 @@
         <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center">
             <h5 class="mb-0">Detalhamento por produto</h5>
         </div>
+
         <div class="table-responsive">
             <table class="table align-middle mb-0">
                 <thead class="table-light">
@@ -123,34 +131,42 @@
                         <th class="text-center">Situação</th>
                     </tr>
                 </thead>
+
                 <tbody>
                     {% if produtos %}
                         {% for p in produtos %}
                             <tr class="{% if p.precisa_repor %}table-warning{% endif %}">
                                 <td>{{ p.nome }}</td>
                                 <td>{{ p.sku or '-' }}</td>
+
                                 <td class="text-end">
-                                    {{ '%.0f'|format(p.estoque_atual or 0) }}
+                                    {{ (p.estoque_atual or 0)|int }}
                                 </td>
+
                                 <td class="text-end">
                                     R$ {{ '%.2f'|format(p.custo_unitario or 0) }}
                                 </td>
+
                                 <td class="text-end">
                                     R$ {{ '%.2f'|format(p.custo_estoque or 0) }}
                                 </td>
+
                                 <td class="text-end">
-                                    {{ '%.2f'|format(p.media_diaria or 0) }}
+                                    {{ (p.media_diaria or 0)|round(0)|int }}
                                 </td>
+
                                 <td class="text-end">
-                                    {{ '%.2f'|format(p.media_mensal or 0) }}
+                                    {{ (p.media_mensal or 0)|round(0)|int }}
                                 </td>
+
                                 <td class="text-end">
                                     {% if p.dias_cobertura is not none %}
-                                        {{ '%.1f'|format(p.dias_cobertura) }}
+                                        {{ (p.dias_cobertura)|round(0)|int }}
                                     {% else %}
                                         -
                                     {% endif %}
                                 </td>
+
                                 <td class="text-center">
                                     {% if p.dias_cobertura is none %}
                                         <span class="badge bg-secondary-subtle text-secondary">
@@ -168,6 +184,7 @@
                                 </td>
                             </tr>
                         {% endfor %}
+
                     {% else %}
                         <tr>
                             <td colspan="9" class="text-center text-muted py-4">
@@ -178,6 +195,7 @@
                 </tbody>
             </table>
         </div>
+
     </div>
 
 </div>
