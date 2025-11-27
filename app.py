@@ -1,5 +1,5 @@
 import os
-from datetime import datetime
+from datetime import datetime, date
 from io import BytesIO
 
 from flask import Flask, render_template, request, redirect, url_for, flash, send_file
@@ -127,7 +127,11 @@ def parse_data_venda(texto):
         hora, minuto = hora_min.split(":")
         return datetime(ano, MESES_PT[mes_nome], int(dia), int(hora), int(minuto))
     except Exception:
-        return None
+        # tenta ISO
+        try:
+            return datetime.fromisoformat(texto)
+        except Exception:
+            return None
 
 
 # --------------------------------------------------------------------
@@ -289,7 +293,7 @@ def dashboard():
         # Receita líquida (bruta - comissão - imposto - despesas)
         receita_liquida_total = receita_total - comissao_total - imposto_total - despesas_total
 
-        # Lucro líquido (TEM QUE BATER COM O RELATÓRIO DE LUCRO)
+        # Lucro líquido
         lucro_liquido_total = (
             receita_total
             - custo_total
@@ -305,8 +309,8 @@ def dashboard():
             else 0.0
         )
 
-        # Margem média de contribuição (também calculada em Python, sem dividir por 0)
-        margem_= (
+        # Margem média de contribuição
+        margem_ = (
             (margem_total / receita_total) * 100.0
             if receita_total > 0
             else 0.0
@@ -342,23 +346,23 @@ def dashboard():
         ).first()
 
     return render_template(
-    "dashboard.html",
-    receita_total=receita_total,
-    receita_liquida_total=receita_liquida_total,
-    lucro_liquido_total=lucro_liquido_total,
-    margem_liquida_percent=margem_liquida_percent,
-    custo_total=custo_total,
-    comissao_total=comissao_total,
-    imposto_total=imposto_total,
-    despesas_total=despesas_total,
-    ticket_medio=ticket_medio,
-    total_produtos=total_produtos,
-    estoque_total=estoque_total,
-    produto_mais_vendido=produto_mais_vendido,
-    produto_maior_lucro=produto_maior_lucro,
-    produto_pior_margem=produto_pior_margem,
-    cfg=cfg
-)
+        "dashboard.html",
+        receita_total=receita_total,
+        receita_liquida_total=receita_liquida_total,
+        lucro_liquido_total=lucro_liquido_total,
+        margem_liquida_percent=margem_liquida_percent,
+        custo_total=custo_total,
+        comissao_total=comissao_total,
+        imposto_total=imposto_total,
+        despesas_total=despesas_total,
+        ticket_medio=ticket_medio,
+        total_produtos=total_produtos,
+        estoque_total=estoque_total,
+        produto_mais_vendido=produto_mais_vendido,
+        produto_maior_lucro=produto_maior_lucro,
+        produto_pior_margem=produto_pior_margem,
+        cfg=cfg
+    )
 
 
 # ---------------- PRODUTOS ----------------
@@ -710,7 +714,6 @@ def exportar_template():
 
 
 # ---------------- ESTOQUE / AJUSTES ----------------
-# ---------------- ESTOQUE / AJUSTES ----------------
 @app.route("/estoque")
 def estoque_view():
     """Visão de estoque com médias de venda e previsão de cobertura.
@@ -726,9 +729,8 @@ def estoque_view():
     DIAS_MINIMOS = 15     # estoque mínimo desejado em dias
 
     hoje = datetime.now()
-    # início do mês atual (0h00)
+    # início do mês atual
     inicio_mes = hoje.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-    # dias corridos do mês até hoje (1 incluído)
     dias_corridos_mes = (hoje.date() - inicio_mes.date()).days + 1
 
     with engine.connect() as conn:
@@ -763,15 +765,10 @@ def estoque_view():
         if not data_raw:
             continue
 
-        # tenta interpretar a data
         dt = parse_data_venda(data_raw)
         if dt is None:
-            try:
-                dt = datetime.fromisoformat(str(data_raw))
-            except Exception:
-                continue
+            continue
 
-        # só considera vendas entre o início do mês e hoje
         if dt < inicio_mes or dt > hoje:
             continue
 
@@ -789,17 +786,15 @@ def estoque_view():
         custo_unitario = float(p["custo_unitario"] or 0)
         custo_estoque = estoque_atual * custo_unitario
 
-        # média diária no mês corrente
         media_diaria = (
             qtd_mes / dias_corridos_mes if dias_corridos_mes > 0 else 0.0
         )
-        # projeção mensal (média mensal)
         media_mensal = media_diaria * 30.0
 
         if media_diaria > 0:
             dias_cobertura = estoque_atual / media_diaria
         else:
-            dias_cobertura = None  # sem vendas no mês, não dá pra estimar
+            dias_cobertura = None
 
         precisa_repor = (
             dias_cobertura is not None and dias_cobertura < DIAS_MINIMOS
@@ -826,13 +821,33 @@ def estoque_view():
     return render_template(
         "estoque.html",
         produtos=produtos_enriquecidos,
-        janela_dias=dias_corridos_mes,  # agora mostra os dias corridos do mês
+        janela_dias=dias_corridos_mes,
         dias_minimos=DIAS_MINIMOS,
         total_unidades_estoque=total_unidades_estoque,
         total_custo_estoque=total_custo_estoque,
     )
 
 
+# GET – formulário de ajuste
+@app.route("/estoque/ajuste", methods=["GET"])
+def ajuste_estoque_form():
+    with engine.connect() as conn:
+        produtos_rows = conn.execute(
+            select(
+                produtos.c.id,
+                produtos.c.nome,
+                produtos.c.sku
+            ).order_by(produtos.c.nome)
+        ).mappings().all()
+
+    if not produtos_rows:
+        flash("Cadastre ao menos 1 produto antes de ajustar estoque.", "warning")
+        return redirect(url_for("estoque_view"))
+
+    return render_template("ajuste_estoque.html", produtos=produtos_rows)
+
+
+# POST – grava ajuste com custo médio ponderado
 @app.route("/estoque/ajuste", methods=["POST"])
 def ajuste_estoque():
     produto_id = int(request.form["produto_id"])
@@ -841,16 +856,13 @@ def ajuste_estoque():
     custo_unitario = request.form.get("custo_unitario")
     observacao = request.form.get("observacao") or ""
 
-    # custo informado no formulário (pode ser vazio)
     custo_unitario_val = (
         float(custo_unitario) if custo_unitario not in (None, "",) else None
     )
 
-    # entrada = +, saída = -
     fator = 1 if tipo == "entrada" else -1
 
     with engine.begin() as conn:
-        # Busca dados atuais do produto
         prod = conn.execute(
             select(
                 produtos.c.estoque_atual,
@@ -865,28 +877,19 @@ def ajuste_estoque():
         estoque_atual = float(prod["estoque_atual"] or 0)
         custo_atual = float(prod["custo_unitario"] or 0)
 
-        novo_custo_medio = custo_atual  # por padrão mantém o custo atual
+        novo_custo_medio = custo_atual
 
-        # 🔹 REGRA: somente ENTRADA com custo informado recalcula o custo médio
+        # só recalcula custo em ENTRADA com custo informado
         if tipo == "entrada" and quantidade > 0 and custo_unitario_val is not None:
-            # se não há estoque, o custo do lote vira o custo médio
             if estoque_atual <= 0:
                 novo_custo_medio = custo_unitario_val
             else:
-                # custo médio ponderado:
-                # (estoque_atual * custo_atual + quantidade_entrada * custo_novo) / (estoque_atual + quantidade_entrada)
                 novo_custo_medio = (
                     (estoque_atual * custo_atual) + (quantidade * custo_unitario_val)
                 ) / (estoque_atual + quantidade)
 
-        # novo estoque após o ajuste
         novo_estoque = estoque_atual + fator * quantidade
 
-        # opcional: se quiser, evita estoque negativo
-        # if novo_estoque < 0:
-        #     novo_estoque = 0
-
-        # Atualiza produto com novo estoque e custo médio
         conn.execute(
             update(produtos)
             .where(produtos.c.id == produto_id)
@@ -896,9 +899,6 @@ def ajuste_estoque():
             )
         )
 
-        # Para registrar o ajuste:
-        # - ENTRADA: grava o custo informado (custo_unitario_val)
-        # - SAÍDA: grava o custo vigente no momento (custo_atual)
         if tipo == "saida":
             custo_ajuste_registro = custo_atual
         else:
@@ -948,10 +948,6 @@ def relatorio_lucro():
     """Relatório de lucro detalhado por produto.
 
     Margem líquida = Receita - Comissão ML - Custo - Despesas - Imposto
-    - Comissão ML é estimada como a diferença entre (Receita - Custo) e a margem registrada hoje.
-      Isso permite exibir a comissão mesmo que ela já esteja embutida na margem de contribuição.
-    - Imposto e Despesas usam os percentuais configurados em "Configurações" e são aplicados
-      sobre a receita total do produto.
     """
 
     with engine.connect() as conn:
@@ -963,7 +959,6 @@ def relatorio_lucro():
         imposto_percent = float(cfg.get("imposto_percent") or 0)
         despesas_percent = float(cfg.get("despesas_percent") or 0)
 
-        # Consolida vendas por produto
         rows = conn.execute(
             select(
                 produtos.c.nome.label("produto"),
@@ -992,9 +987,6 @@ def relatorio_lucro():
         custo = float(r["custo"] or 0)
         margem_atual = float(r["margem_atual"] or 0)
 
-        # Estimativa da comissão do ML:
-        # se hoje margem = receita - custo - comissao, então
-        # comissao = (receita - custo) - margem_atual
         comissao_ml = max(0.0, (receita - custo) - margem_atual)
 
         imposto_val = receita * (imposto_percent / 100.0)
@@ -1014,7 +1006,6 @@ def relatorio_lucro():
         }
         linhas.append(linha)
 
-        # Totais gerais
         totais["qtd"] += linha["qtd"]
         totais["receita"] += receita
         totais["custo"] += custo
@@ -1023,7 +1014,6 @@ def relatorio_lucro():
         totais["despesas"] += despesas_val
         totais["margem_liquida"] += margem_liquida
 
-    # Ordena do maior lucro líquido para o menor
     linhas.sort(key=lambda x: x["margem_liquida"], reverse=True)
 
     return render_template(
