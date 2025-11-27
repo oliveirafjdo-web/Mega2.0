@@ -841,23 +841,68 @@ def ajuste_estoque():
     custo_unitario = request.form.get("custo_unitario")
     observacao = request.form.get("observacao") or ""
 
-    custo_unitario_val = float(custo_unitario) if custo_unitario not in (None, "",) else None
+    # custo informado no formulário (pode ser vazio)
+    custo_unitario_val = (
+        float(custo_unitario) if custo_unitario not in (None, "",) else None
+    )
 
+    # entrada = +, saída = -
     fator = 1 if tipo == "entrada" else -1
 
     with engine.begin() as conn:
-        if custo_unitario_val is not None:
-            conn.execute(
-                update(produtos)
-                .where(produtos.c.id == produto_id)
-                .values(custo_unitario=custo_unitario_val)
-            )
+        # Busca dados atuais do produto
+        prod = conn.execute(
+            select(
+                produtos.c.estoque_atual,
+                produtos.c.custo_unitario
+            ).where(produtos.c.id == produto_id)
+        ).mappings().first()
 
+        if not prod:
+            flash("Produto não encontrado para ajuste de estoque.", "danger")
+            return redirect(url_for("estoque_view"))
+
+        estoque_atual = float(prod["estoque_atual"] or 0)
+        custo_atual = float(prod["custo_unitario"] or 0)
+
+        novo_custo_medio = custo_atual  # por padrão mantém o custo atual
+
+        # 🔹 REGRA: somente ENTRADA com custo informado recalcula o custo médio
+        if tipo == "entrada" and quantidade > 0 and custo_unitario_val is not None:
+            # se não há estoque, o custo do lote vira o custo médio
+            if estoque_atual <= 0:
+                novo_custo_medio = custo_unitario_val
+            else:
+                # custo médio ponderado:
+                # (estoque_atual * custo_atual + quantidade_entrada * custo_novo) / (estoque_atual + quantidade_entrada)
+                novo_custo_medio = (
+                    (estoque_atual * custo_atual) + (quantidade * custo_unitario_val)
+                ) / (estoque_atual + quantidade)
+
+        # novo estoque após o ajuste
+        novo_estoque = estoque_atual + fator * quantidade
+
+        # opcional: se quiser, evita estoque negativo
+        # if novo_estoque < 0:
+        #     novo_estoque = 0
+
+        # Atualiza produto com novo estoque e custo médio
         conn.execute(
             update(produtos)
             .where(produtos.c.id == produto_id)
-            .values(estoque_atual=produtos.c.estoque_atual + fator * quantidade)
+            .values(
+                estoque_atual=novo_estoque,
+                custo_unitario=novo_custo_medio,
+            )
         )
+
+        # Para registrar o ajuste:
+        # - ENTRADA: grava o custo informado (custo_unitario_val)
+        # - SAÍDA: grava o custo vigente no momento (custo_atual)
+        if tipo == "saida":
+            custo_ajuste_registro = custo_atual
+        else:
+            custo_ajuste_registro = custo_unitario_val
 
         conn.execute(
             insert(ajustes_estoque).values(
@@ -865,12 +910,12 @@ def ajuste_estoque():
                 data_ajuste=datetime.now().isoformat(),
                 tipo=tipo,
                 quantidade=quantidade,
-                custo_unitario=custo_unitario_val,
+                custo_unitario=custo_ajuste_registro,
                 observacao=observacao,
             )
         )
 
-    flash("Ajuste de estoque registrado!", "success")
+    flash("Ajuste de estoque registrado com custo médio atualizado!", "success")
     return redirect(url_for("estoque_view"))
 
 
