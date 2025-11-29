@@ -28,7 +28,9 @@
         <div class="col-12">
             <div class="card shadow-sm">
                 <div class="card-header"><strong>Faturamento diário</strong></div>
-                <div class="card-body"><canvas id="grafFaturamento"></canvas></div>
+                <div class="card-body">
+                    <canvas id="grafFaturamento" style="height:260px;"></canvas>
+                </div>
             </div>
         </div>
 
@@ -36,7 +38,9 @@
         <div class="col-xl-6 col-12">
             <div class="card shadow-sm">
                 <div class="card-header"><strong>Quantidade vendida por dia</strong></div>
-                <div class="card-body"><canvas id="grafQuantidade"></canvas></div>
+                <div class="card-body">
+                    <canvas id="grafQuantidade" style="height:260px;"></canvas>
+                </div>
             </div>
         </div>
 
@@ -44,7 +48,9 @@
         <div class="col-xl-6 col-12">
             <div class="card shadow-sm">
                 <div class="card-header"><strong>Lucro diário</strong></div>
-                <div class="card-body"><canvas id="grafLucro"></canvas></div>
+                <div class="card-body">
+                    <canvas id="grafLucro" style="height:260px;"></canvas>
+                </div>
             </div>
         </div>
 
@@ -52,7 +58,9 @@
         <div class="col-12">
             <div class="card shadow-sm">
                 <div class="card-header"><strong>Comparativo: Mês atual x Mês anterior</strong></div>
-                <div class="card-body"><canvas id="grafComparativo"></canvas></div>
+                <div class="card-body">
+                    <canvas id="grafComparativo" style="height:260px;"></canvas>
+                </div>
             </div>
         </div>
 
@@ -83,10 +91,10 @@
                         <td>{{ v.data_venda }}</td>
                         <td>{{ v.nome }}</td>
                         <td class="text-end">{{ v.quantidade }}</td>
-                        <td class="text-end">R$ {{ '%.2f'|format(v.preco_venda_unitario) }}</td>
-                        <td class="text-end">R$ {{ '%.2f'|format(v.receita_total) }}</td>
-                        <td class="text-end">R$ {{ '%.2f'|format(v.custo_total) }}</td>
-                        <td class="text-end">R$ {{ '%.2f'|format(v.margem_contribuicao) }}</td>
+                        <td class="text-end">R$ {{ '%.2f'|format(v.preco_venda_unitario or 0) }}</td>
+                        <td class="text-end">R$ {{ '%.2f'|format(v.receita_total or 0) }}</td>
+                        <td class="text-end">R$ {{ '%.2f'|format(v.custo_total or 0) }}</td>
+                        <td class="text-end">R$ {{ '%.2f'|format(v.margem_contribuicao or 0) }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -97,89 +105,185 @@
 
 </div>
 
+<!-- Chart.js e plugin de datalabels -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
 
 <script>
-const labels = {{ grafico_labels|tojson }};
-const faturamento = {{ grafico_faturamento|tojson }};
-const quantidade = {{ grafico_quantidade|tojson }};
-const lucro = {{ grafico_lucro|tojson }};
-const cmp_labels = {{ grafico_cmp_labels|tojson }};
-const cmp_atual = {{ grafico_cmp_atual|tojson }};
-const cmp_anterior = {{ grafico_cmp_anterior|tojson }};
+    // Dados vindos do Flask
+    const labels          = {{ grafico_labels|tojson }};
+    const faturamento     = {{ grafico_faturamento|tojson }};
+    const quantidade      = {{ grafico_quantidade|tojson }};
+    const lucro           = {{ grafico_lucro|tojson }};
+    const cmp_labels      = {{ grafico_cmp_labels|tojson }};
+    const cmp_atual       = {{ grafico_cmp_atual|tojson }};
+    const cmp_anterior    = {{ grafico_cmp_anterior|tojson }};
 
-// FATURAMENTO
-new Chart(document.getElementById('grafFaturamento'), {
-    type: 'line',
-    data: {
-        labels: labels,
-        datasets: [{
-            label: "Faturamento (R$)",
-            data: faturamento,
-            borderWidth: 3,
-            borderColor: '#007bff',
-            backgroundColor: 'rgba(0,123,255,0.2)',
-            fill: true,
-            tension: 0.3
-        }]
-    }
-});
+    // Registra o plugin globalmente
+    Chart.register(ChartDataLabels);
 
-// QUANTIDADE
-new Chart(document.getElementById('grafQuantidade'), {
-    type: 'bar',
-    data: {
-        labels: labels,
-        datasets: [{
-            label: "Quantidade vendida",
-            data: quantidade,
-            backgroundColor: '#0d6efd'
-        }]
-    }
-});
+    // Funções de formatação
+    const fmtMoeda = (valor) => {
+        return 'R$ ' + Number(valor || 0).toLocaleString('pt-BR', {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0
+        });
+    };
 
-// LUCRO
-new Chart(document.getElementById('grafLucro'), {
-    type: 'line',
-    data: {
-        labels: labels,
-        datasets: [{
-            label: "Lucro (R$)",
-            data: lucro,
-            borderWidth: 3,
-            borderColor: '#28a745',
-            backgroundColor: 'rgba(40,167,69,0.2)',
-            fill: true,
-            tension: 0.3
-        }]
-    }
-});
+    const fmtNumero = (valor) => {
+        return Number(valor || 0).toLocaleString('pt-BR', {
+            maximumFractionDigits: 0
+        });
+    };
 
-// COMPARATIVO MÊS A MÊS
-new Chart(document.getElementById('grafComparativo'), {
-    type: 'line',
-    data: {
-        labels: cmp_labels,
-        datasets: [
-            {
-                label: "Mês atual",
-                data: cmp_atual,
+    // Opções padrão para gráficos de linha com datalabels
+    const linhaMoedaOpts = {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+            y: { beginAtZero: true }
+        },
+        plugins: {
+            legend: { display: true },
+            datalabels: {
+                anchor: 'end',
+                align: 'top',
+                formatter: (val) => fmtMoeda(val),
+                font: { size: 10 },
+                offset: 4
+            },
+            tooltip: {
+                callbacks: {
+                    label: ctx => fmtMoeda(ctx.parsed.y)
+                }
+            }
+        }
+    };
+
+    const linhaNumeroOpts = {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+            y: { beginAtZero: true }
+        },
+        plugins: {
+            legend: { display: true },
+            datalabels: {
+                anchor: 'end',
+                align: 'top',
+                formatter: (val) => fmtNumero(val),
+                font: { size: 10 },
+                offset: 4
+            },
+            tooltip: {
+                callbacks: {
+                    label: ctx => fmtNumero(ctx.parsed.y)
+                }
+            }
+        }
+    };
+
+    // FATURAMENTO
+    new Chart(document.getElementById('grafFaturamento').getContext('2d'), {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: "Faturamento (R$)",
+                data: faturamento,
+                borderWidth: 2,
                 borderColor: '#0d6efd',
                 backgroundColor: 'rgba(13,110,253,0.2)',
+                fill: true,
                 tension: 0.3,
-                fill: true
+                pointRadius: 3
+            }]
+        },
+        options: linhaMoedaOpts
+    });
+
+    // QUANTIDADE
+    new Chart(document.getElementById('grafQuantidade').getContext('2d'), {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: "Quantidade vendida",
+                data: quantidade,
+                backgroundColor: '#0d6efd'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: { beginAtZero: true }
             },
-            {
-                label: "Mês anterior",
-                data: cmp_anterior,
-                borderColor: '#6c757d',
-                backgroundColor: 'rgba(108,117,125,0.2)',
-                tension: 0.3,
-                fill: true
+            plugins: {
+                legend: { display: true },
+                datalabels: {
+                    anchor: 'end',
+                    align: 'top',
+                    formatter: (val) => fmtNumero(val),
+                    font: { size: 10 },
+                    offset: 4
+                },
+                tooltip: {
+                    callbacks: {
+                        label: ctx => fmtNumero(ctx.parsed.y)
+                    }
+                }
             }
-        ]
-    }
-});
+        }
+    });
+
+    // LUCRO
+    new Chart(document.getElementById('grafLucro').getContext('2d'), {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: "Lucro (R$)",
+                data: lucro,
+                borderWidth: 2,
+                borderColor: '#28a745',
+                backgroundColor: 'rgba(40,167,69,0.2)',
+                fill: true,
+                tension: 0.3,
+                pointRadius: 3
+            }]
+        },
+        options: linhaMoedaOpts
+    });
+
+    // COMPARATIVO MÊS ATUAL x ANTERIOR
+    new Chart(document.getElementById('grafComparativo').getContext('2d'), {
+        type: 'line',
+        data: {
+            labels: cmp_labels,
+            datasets: [
+                {
+                    label: "Mês atual",
+                    data: cmp_atual,
+                    borderColor: '#0d6efd',
+                    backgroundColor: 'rgba(13,110,253,0.2)',
+                    fill: true,
+                    tension: 0.3,
+                    pointRadius: 3
+                },
+                {
+                    label: "Mês anterior",
+                    data: cmp_anterior,
+                    borderColor: '#6c757d',
+                    backgroundColor: 'rgba(108,117,125,0.2)',
+                    fill: false,
+                    tension: 0.3,
+                    pointRadius: 3
+                }
+            ]
+        },
+        options: linhaMoedaOpts
+    });
 </script>
 
 {% endblock %}
