@@ -1,96 +1,112 @@
 {% extends "base.html" %}
 
-{% block title %}Relatório de Lucro • MetriFy{% endblock %}
-{% block page_icon %}<i class="bi bi-graph-up-arrow text-success"></i>{% endblock %}
-{% block page_title %}Relatório de Lucro por Produto{% endblock %}
+{% block title %}Relatório de Lucro - Metrify{% endblock %}
 
 {% block content %}
-<div class="card-glass mb-3">
-  <div class="card-glass-header">
-    <div class="card-glass-title">
-      <i class="bi bi-info-circle"></i> Parâmetros de cálculo
-    </div>
-  </div>
-  <div class="row g-3">
-    <div class="col-6 col-md-3">
-      <div class="stat-label">Imposto (%)</div>
-      <div class="stat-value">{{ '%.2f'|format(imposto_percent) }}%</div>
-      <div class="stat-sub">Aplicado sobre a receita</div>
-    </div>
-    <div class="col-6 col-md-3">
-      <div class="stat-label">Despesas (%)</div>
-      <div class="stat-value">{{ '%.2f'|format(despesas_percent) }}%</div>
-      <div class="stat-sub">Aplicado sobre a receita</div>
-    </div>
-    <div class="col-12 col-md-6">
-      <div class="text-soft">
-        Margem líquida = Receita - Comissão ML - Custo - Impostos - Despesas.  
-        Comissão ML é estimada por produto a partir da diferença entre a margem de contribuição
-        registrada e (receita - custo).
-      </div>
-    </div>
-  </div>
-</div>
+<div class="container-fluid py-4">
 
-<div class="card-glass">
-  <div class="card-glass-header">
-    <div class="card-glass-title">
-      <i class="bi bi-table"></i> Produtos ordenados pelo maior lucro líquido
-    </div>
-    <span class="badge-soft">{{ linhas|length }} produtos</span>
-  </div>
+    <!-- Cabeçalho -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-1">Relatório de Lucro</h1>
+            <p class="text-muted mb-0">
+                Visão consolidada de receita, custos, comissões, impostos, despesas e lucro líquido por produto.
+            </p>
+        </div>
 
-  <div class="table-responsive">
-    <table class="table table-sm align-middle mb-0">
-      <thead>
-        <tr>
-          <th>Produto</th>
-          <th class="text-end">Qtd.</th>
-          <th class="text-end">Receita (R$)</th>
-          <th class="text-end">Custo (R$)</th>
-          <th class="text-end">Comissão ML (R$)</th>
-          <th class="text-end">Impostos (R$)</th>
-          <th class="text-end">Despesas (R$)</th>
-          <th class="text-end">Lucro líquido (R$)</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% if linhas %}
-          {% for l in linhas %}
-            <tr>
-              <td>{{ l.produto }}</td>
-              <td class="text-end">{{ '%.0f'|format(l.qtd) }}</td>
-              <td class="text-end">R$ {{ '%.2f'|format(l.receita) }}</td>
-              <td class="text-end">R$ {{ '%.2f'|format(l.custo) }}</td>
-              <td class="text-end text-warning">R$ {{ '%.2f'|format(l.comissao) }}</td>
-              <td class="text-end">R$ {{ '%.2f'|format(l.imposto) }}</td>
-              <td class="text-end">R$ {{ '%.2f'|format(l.despesas) }}</td>
-              <td class="text-end fw-semibold text-success">R$ {{ '%.2f'|format(l.margem_liquida) }}</td>
-            </tr>
-          {% endfor %}
-        {% else %}
-          <tr>
-            <td colspan="8" class="text-center text-soft py-3">
-              Nenhuma venda encontrada para gerar o relatório.
-            </td>
-          </tr>
-        {% endif %}
-      </tbody>
-      {% if linhas %}
-        <tfoot>
-          <tr>
-            <th>Total</th>
-            <th class="text-end">{{ '%.0f'|format(totais.qtd) }}</th>
-            <th class="text-end">R$ {{ '%.2f'|format(totais.receita) }}</th>
-            <th class="text-end">R$ {{ '%.2f'|format(totais.custo) }}</th>
-            <th class="text-end text-warning">R$ {{ '%.2f'|format(totais.comissao) }}</th>
-            <th class="text-end">R$ {{ '%.2f'|format(totais.imposto) }}</th>
-            <th class="text-end">R$ {{ '%.2f'|format(totais.despesas) }}</th>
-            <th class="text-end fw-semibold text-success">R$ {{ '%.2f'|format(totais.margem_liquida) }}</th>
-          </tr>
-        </tfoot>
-      {% endif %}
-    </table>
-  </div>
+        <div>
+            <a href="{{ url_for('relatorio_lucro_exportar') }}" class="btn btn-success">
+                <i class="bi bi-file-earmark-spreadsheet"></i> Exportar Planilha
+            </a>
+        </div>
+    </div>
+
+    <!-- Tabela principal -->
+    <div class="card shadow-sm border-0">
+        <div class="table-responsive">
+            <table class="table align-middle mb-0 table-hover">
+                <thead class="table-light">
+                    <tr>
+                        <th>Produto</th>
+                        <th class="text-end">Qtd</th>
+                        <th class="text-end">Receita (R$)</th>
+                        <th class="text-end">Custo (R$)</th>
+                        <th class="text-end">Comissão ML (R$)</th>
+                        <th class="text-end">Imposto (R$)</th>
+                        <th class="text-end">Despesas (R$)</th>
+                        <th class="text-end">Lucro líquido (R$)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for linha in linhas %}
+                        <tr>
+                            <td>{{ linha.produto }}</td>
+
+                            <td class="text-end">
+                                {{ linha.qtd|int }}
+                            </td>
+
+                            <td class="text-end">
+                                R$ {{ '%.2f'|format(linha.receita or 0) }}
+                            </td>
+
+                            <td class="text-end">
+                                R$ {{ '%.2f'|format(linha.custo or 0) }}
+                            </td>
+
+                            <td class="text-end">
+                                R$ {{ '%.2f'|format(linha.comissao or 0) }}
+                            </td>
+
+                            <td class="text-end">
+                                R$ {{ '%.2f'|format(linha.imposto or 0) }}
+                            </td>
+
+                            <td class="text-end">
+                                R$ {{ '%.2f'|format(linha.despesas or 0) }}
+                            </td>
+
+                            <td class="text-end fw-semibold">
+                                R$ {{ '%.2f'|format(linha.margem_liquida or 0) }}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+
+                <tfoot class="table-light">
+                    <tr class="fw-bold">
+                        <td>Totais</td>
+
+                        <td class="text-end">{{ totais.qtd|int }}</td>
+
+                        <td class="text-end">
+                            R$ {{ '%.2f'|format(totais.receita or 0) }}
+                        </td>
+
+                        <td class="text-end">
+                            R$ {{ '%.2f'|format(totais.custo or 0) }}
+                        </td>
+
+                        <td class="text-end">
+                            R$ {{ '%.2f'|format(totais.comissao or 0) }}
+                        </td>
+
+                        <td class="text-end">
+                            R$ {{ '%.2f'|format(totais.imposto or 0) }}
+                        </td>
+
+                        <td class="text-end">
+                            R$ {{ '%.2f'|format(totais.despesas or 0) }}
+                        </td>
+
+                        <td class="text-end">
+                            R$ {{ '%.2f'|format(totais.margem_liquida or 0) }}
+                        </td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+
 </div>
 {% endblock %}
