@@ -5,89 +5,112 @@
 {% block content %}
 <div class="container-fluid py-4">
 
-    <!-- Título -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
+    <!-- Cabeçalho -->
+    <div class="d-flex justify-content-between align-items-center mb-3">
         <div>
             <h1 class="h3 mb-1">Visão geral do negócio</h1>
             <p class="text-muted mb-0">
-                Acompanhe rapidamente o desempenho de vendas, lucros e estoque.
+                Resultados consolidados do período selecionado.
             </p>
+            <small class="text-muted">
+                Período: 
+                {% if data_inicio %}{{ data_inicio }}{% else %}-{% endif %}
+                 até 
+                {% if data_fim %}{{ data_fim }}{% else %}-{% endif %}
+            </small>
         </div>
     </div>
 
-    <!-- Linha 1: Receita, Receita Líquida, Lucro Líquido, Margem Líquida -->
+    <!-- Filtro de período -->
+    <form class="row g-3 mb-4" method="GET">
+        <div class="col-md-3">
+            <label class="form-label">Data início</label>
+            <input type="date" name="data_inicio" class="form-control" value="{{ data_inicio }}">
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">Data fim</label>
+            <input type="date" name="data_fim" class="form-control" value="{{ data_fim }}">
+        </div>
+        <div class="col-md-2 d-flex align-items-end">
+            <button class="btn btn-primary w-100">Filtrar</button>
+        </div>
+    </form>
+
+    <!-- Linha 1 - KPIs principais -->
     <div class="row g-3 mb-3">
 
-        <!-- Receita Bruta -->
+        <!-- Receita bruta -->
         <div class="col-12 col-md-6 col-xl-3">
-            <div class="card shadow-sm h-100 border-0">
+            <div class="card shadow-sm border-0 h-100">
                 <div class="card-body d-flex">
                     <div class="flex-grow-1">
-                        <div class="text-muted text-uppercase small mb-1">Receita Bruta</div>
+                        <div class="text-muted text-uppercase small mb-1">Receita bruta</div>
                         <div class="h4 mb-0">
                             R$ {{ '%.2f'|format(receita_total or 0) }}
                         </div>
-                        <small class="text-muted">Valor total vendido em todas as vendas.</small>
+                        <small class="text-muted">
+                            Valor total vendido no período.
+                        </small>
                     </div>
                     <div class="ms-3 d-flex align-items-center">
                         <div class="rounded-circle bg-primary bg-opacity-10 p-3">
-                            <i class="bi bi-bar-chart-line text-primary fs-4"></i>
+                            <i class="bi bi-graph-up-arrow text-primary fs-4"></i>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Receita Líquida -->
+        <!-- Receita líquida -->
         <div class="col-12 col-md-6 col-xl-3">
-            <div class="card shadow-sm h-100 border-0">
+            <div class="card shadow-sm border-0 h-100">
                 <div class="card-body d-flex">
                     <div class="flex-grow-1">
-                        <div class="text-muted text-uppercase small mb-1">Receita Líquida</div>
+                        <div class="text-muted text-uppercase small mb-1">Receita líquida</div>
                         <div class="h4 mb-0">
                             R$ {{ '%.2f'|format(receita_liquida_total or 0) }}
                         </div>
                         <small class="text-muted">
-                            Receita após comissão, impostos e despesas.
+                            Receita após comissão, imposto e despesas.
                         </small>
                     </div>
                     <div class="ms-3 d-flex align-items-center">
-                        <div class="rounded-circle bg-success bg-opacity-10 p-3">
-                            <i class="bi bi-cash-coin text-success fs-4"></i>
+                        <div class="rounded-circle bg-info bg-opacity-10 p-3">
+                            <i class="bi bi-cash-coin text-info fs-4"></i>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Lucro Líquido -->
+        <!-- Lucro líquido -->
         <div class="col-12 col-md-6 col-xl-3">
-            <div class="card shadow-sm h-100 border-0">
+            <div class="card shadow-sm border-0 h-100">
                 <div class="card-body d-flex">
                     <div class="flex-grow-1">
-                        <div class="text-muted text-uppercase small mb-1">Lucro Líquido</div>
+                        <div class="text-muted text-uppercase small mb-1">Lucro líquido</div>
                         <div class="h4 mb-0">
                             R$ {{ '%.2f'|format(lucro_liquido_total or 0) }}
                         </div>
                         <small class="text-muted">
-                            Mesmo cálculo do relatório de lucro.
+                            Mesmo cálculo do Relatório de Lucro.
                         </small>
                     </div>
                     <div class="ms-3 d-flex align-items-center">
-                        <div class="rounded-circle bg-warning bg-opacity-10 p-3">
-                            <i class="bi bi-graph-up-arrow text-warning fs-4"></i>
+                        <div class="rounded-circle bg-success bg-opacity-10 p-3">
+                            <i class="bi bi-wallet2 text-success fs-4"></i>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Margem Líquida % -->
+        <!-- Margem líquida -->
         <div class="col-12 col-md-6 col-xl-3">
-            <div class="card shadow-sm h-100 border-0">
+            <div class="card shadow-sm border-0 h-100">
                 <div class="card-body d-flex">
                     <div class="flex-grow-1">
-                        <div class="text-muted text-uppercase small mb-1">Margem Líquida</div>
+                        <div class="text-muted text-uppercase small mb-1">Margem líquida</div>
                         <div class="h4 mb-0">
                             {{ '%.2f'|format(margem_liquida_percent or 0) }}%
                         </div>
@@ -96,8 +119,8 @@
                         </small>
                     </div>
                     <div class="ms-3 d-flex align-items-center">
-                        <div class="rounded-circle bg-info bg-opacity-10 p-3">
-                            <i class="bi bi-percent text-info fs-4"></i>
+                        <div class="rounded-circle bg-warning bg-opacity-10 p-3">
+                            <i class="bi bi-percent text-warning fs-4"></i>
                         </div>
                     </div>
                 </div>
@@ -106,19 +129,21 @@
 
     </div>
 
-    <!-- Linha 2: Custos, Comissão, Imposto, Despesas -->
+    <!-- Linha 2 - Custos / impostos / ticket -->
     <div class="row g-3 mb-3">
 
-        <!-- Custo de Produtos -->
+        <!-- Custo de produtos -->
         <div class="col-12 col-md-6 col-xl-3">
-            <div class="card shadow-sm h-100 border-0">
+            <div class="card shadow-sm border-0 h-100">
                 <div class="card-body d-flex">
                     <div class="flex-grow-1">
-                        <div class="text-muted text-uppercase small mb-1">Custo de Produtos</div>
-                        <div class="h5 mb-0">
+                        <div class="text-muted text-uppercase small mb-1">Custo de produtos</div>
+                        <div class="h4 mb-0">
                             R$ {{ '%.2f'|format(custo_total or 0) }}
                         </div>
-                        <small class="text-muted">Soma de todos os custos informados nos produtos.</small>
+                        <small class="text-muted">
+                            Soma dos custos informados nos produtos.
+                        </small>
                     </div>
                     <div class="ms-3 d-flex align-items-center">
                         <div class="rounded-circle bg-secondary bg-opacity-10 p-3">
@@ -129,13 +154,15 @@
             </div>
         </div>
 
-        <!-- Comissão Mercado Livre -->
+        <!-- Comissão estimada Mercado Livre -->
         <div class="col-12 col-md-6 col-xl-3">
-            <div class="card shadow-sm h-100 border-0">
+            <div class="card shadow-sm border-0 h-100">
                 <div class="card-body d-flex">
                     <div class="flex-grow-1">
-                        <div class="text-muted text-uppercase small mb-1">Comissão Mercado Livre (estimada)</div>
-                        <div class="h5 mb-0">
+                        <div class="text-muted text-uppercase small mb-1">
+                            Comissão Mercado Livre (estimada)
+                        </div>
+                        <div class="h4 mb-0">
                             R$ {{ '%.2f'|format(comissao_total or 0) }}
                         </div>
                         <small class="text-muted">
@@ -153,20 +180,22 @@
 
         <!-- Imposto -->
         <div class="col-12 col-md-6 col-xl-3">
-            <div class="card shadow-sm h-100 border-0">
+            <div class="card shadow-sm border-0 h-100">
                 <div class="card-body d-flex">
                     <div class="flex-grow-1">
                         <div class="text-muted text-uppercase small mb-1">
-                            Imposto ({{ cfg.imposto_percent if cfg else 0 }}%)
+                            Imposto ({{ '%.2f'|format(cfg.imposto_percent if cfg else 0) }}%)
                         </div>
-                        <div class="h5 mb-0">
+                        <div class="h4 mb-0">
                             R$ {{ '%.2f'|format(imposto_total or 0) }}
                         </div>
-                        <small class="text-muted">Calculado sobre a receita bruta.</small>
+                        <small class="text-muted">
+                            Calculado sobre a receita bruta.
+                        </small>
                     </div>
                     <div class="ms-3 d-flex align-items-center">
                         <div class="rounded-circle bg-warning bg-opacity-10 p-3">
-                            <i class="bi bi-file-earmark-spreadsheet text-warning fs-4"></i>
+                            <i class="bi bi-journal-text text-warning fs-4"></i>
                         </div>
                     </div>
                 </div>
@@ -175,20 +204,22 @@
 
         <!-- Despesas -->
         <div class="col-12 col-md-6 col-xl-3">
-            <div class="card shadow-sm h-100 border-0">
+            <div class="card shadow-sm border-0 h-100">
                 <div class="card-body d-flex">
                     <div class="flex-grow-1">
                         <div class="text-muted text-uppercase small mb-1">
-                            Despesas ({{ cfg.despesas_percent if cfg else 0 }}%)
+                            Despesas ({{ '%.2f'|format(cfg.despesas_percent if cfg else 0) }}%)
                         </div>
-                        <div class="h5 mb-0">
+                        <div class="h4 mb-0">
                             R$ {{ '%.2f'|format(despesas_total or 0) }}
                         </div>
-                        <small class="text-muted">Percentual aplicado sobre a receita.</small>
+                        <small class="text-muted">
+                            Percentual aplicado sobre a receita bruta.
+                        </small>
                     </div>
                     <div class="ms-3 d-flex align-items-center">
-                        <div class="rounded-circle bg-dark bg-opacity-10 p-3">
-                            <i class="bi bi-wallet2 text-dark fs-4"></i>
+                        <div class="rounded-circle bg-info bg-opacity-10 p-3">
+                            <i class="bi bi-building text-info fs-4"></i>
                         </div>
                     </div>
                 </div>
@@ -197,12 +228,12 @@
 
     </div>
 
-    <!-- Linha 3: Ticket médio + Estoque + Contagem de produtos -->
-    <div class="row g-3 mb-4">
+    <!-- Linha 3 - Ticket, produtos, estoque -->
+    <div class="row g-3 mb-3">
 
         <!-- Ticket médio -->
-        <div class="col-12 col-md-4">
-            <div class="card shadow-sm h-100 border-0">
+        <div class="col-12 col-md-6 col-xl-3">
+            <div class="card shadow-sm border-0 h-100">
                 <div class="card-body d-flex">
                     <div class="flex-grow-1">
                         <div class="text-muted text-uppercase small mb-1">Ticket médio</div>
@@ -214,20 +245,22 @@
                         </small>
                     </div>
                     <div class="ms-3 d-flex align-items-center">
-                        <div class="rounded-circle bg-info bg-opacity-10 p-3">
-                            <i class="bi bi-basket2 text-info fs-4"></i>
+                        <div class="rounded-circle bg-primary bg-opacity-10 p-3">
+                            <i class="bi bi-currency-exchange text-primary fs-4"></i>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Total de Produtos -->
-        <div class="col-12 col-md-4">
-            <div class="card shadow-sm h-100 border-0">
+        <!-- Produtos cadastrados -->
+        <div class="col-12 col-md-6 col-xl-3">
+            <div class="card shadow-sm border-0 h-100">
                 <div class="card-body d-flex">
                     <div class="flex-grow-1">
-                        <div class="text-muted text-uppercase small mb-1">Produtos cadastrados</div>
+                        <div class="text-muted text-uppercase small mb-1">
+                            Produtos cadastrados
+                        </div>
                         <div class="h4 mb-0">
                             {{ total_produtos or 0 }}
                         </div>
@@ -236,22 +269,24 @@
                         </small>
                     </div>
                     <div class="ms-3 d-flex align-items-center">
-                        <div class="rounded-circle bg-primary bg-opacity-10 p-3">
-                            <i class="bi bi-collection text-primary fs-4"></i>
+                        <div class="rounded-circle bg-secondary bg-opacity-10 p-3">
+                            <i class="bi bi-box2-heart text-secondary fs-4"></i>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Estoque total -->
-        <div class="col-12 col-md-4">
-            <div class="card shadow-sm h-100 border-0">
+        <!-- Estoque atual (unidades) -->
+        <div class="col-12 col-md-6 col-xl-3">
+            <div class="card shadow-sm border-0 h-100">
                 <div class="card-body d-flex">
                     <div class="flex-grow-1">
-                        <div class="text-muted text-uppercase small mb-1">Estoque atual (unidades)</div>
+                        <div class="text-muted text-uppercase small mb-1">
+                            Estoque atual (unidades)
+                        </div>
                         <div class="h4 mb-0">
-                            {{ estoque_total or 0 }}
+                            {{ estoque_total|int }}
                         </div>
                         <small class="text-muted">
                             Soma de todos os estoques atuais dos produtos.
@@ -259,8 +294,23 @@
                     </div>
                     <div class="ms-3 d-flex align-items-center">
                         <div class="rounded-circle bg-success bg-opacity-10 p-3">
-                            <i class="bi bi-boxes text-success fs-4"></i>
+                            <i class="bi bi-stack text-success fs-4"></i>
                         </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Espaço para futuros KPIs ou gráfico -->
+        <div class="col-12 col-md-6 col-xl-3">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-body d-flex flex-column justify-content-center">
+                    <div class="text-muted text-uppercase small mb-1">
+                        Visão rápida
+                    </div>
+                    <div class="small text-muted">
+                        Use o filtro de período acima para analisar diferentes janelas de tempo
+                        (mês atual, mês anterior, datas específicas, etc.).
                     </div>
                 </div>
             </div>
@@ -268,67 +318,61 @@
 
     </div>
 
-    <!-- Linha 4: Destaques de produtos -->
+    <!-- Linha 4 - Produtos destaque -->
     <div class="row g-3">
 
         <!-- Produto mais vendido -->
-        <div class="col-12 col-xl-4">
-            <div class="card shadow-sm h-100 border-0">
-                <div class="card-header bg-transparent border-0 pb-0">
-                    <h6 class="mb-0">Produto mais vendido</h6>
+        <div class="col-12 col-md-4">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-header bg-transparent border-bottom-0">
+                    <strong>Produto mais vendido</strong>
                 </div>
                 <div class="card-body">
                     {% if produto_mais_vendido %}
-                        <p class="mb-1 fw-semibold">
-                            {{ produto_mais_vendido[0] }}
-                        </p>
+                        <p class="mb-1 fw-semibold">{{ produto_mais_vendido[0] }}</p>
                         <small class="text-muted">
-                            Quantidade vendida: {{ produto_mais_vendido[1] }}
+                            Quantidade vendida no período: {{ produto_mais_vendido[1]|int }}
                         </small>
                     {% else %}
-                        <p class="text-muted mb-0">Ainda não há vendas suficientes para calcular.</p>
+                        <p class="text-muted mb-0">Nenhuma venda no período selecionado.</p>
                     {% endif %}
                 </div>
             </div>
         </div>
 
         <!-- Produto com maior lucro -->
-        <div class="col-12 col-xl-4">
-            <div class="card shadow-sm h-100 border-0">
-                <div class="card-header bg-transparent border-0 pb-0">
-                    <h6 class="mb-0">Produto com maior lucro</h6>
+        <div class="col-12 col-md-4">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-header bg-transparent border-bottom-0">
+                    <strong>Produto com maior lucro</strong>
                 </div>
                 <div class="card-body">
                     {% if produto_maior_lucro %}
-                        <p class="mb-1 fw-semibold">
-                            {{ produto_maior_lucro[0] }}
-                        </p>
+                        <p class="mb-1 fw-semibold">{{ produto_maior_lucro[0] }}</p>
                         <small class="text-muted">
-                            Lucro (margem contrib.): R$ {{ '%.2f'|format(produto_maior_lucro[1] or 0) }}
+                            Lucro de R$ {{ '%.2f'|format(produto_maior_lucro[1] or 0) }} no período.
                         </small>
                     {% else %}
-                        <p class="text-muted mb-0">Ainda não há dados de lucro disponíveis.</p>
+                        <p class="text-muted mb-0">Nenhuma venda no período selecionado.</p>
                     {% endif %}
                 </div>
             </div>
         </div>
 
         <!-- Produto com pior margem -->
-        <div class="col-12 col-xl-4">
-            <div class="card shadow-sm h-100 border-0">
-                <div class="card-header bg-transparent border-0 pb-0">
-                    <h6 class="mb-0">Produto com pior margem</h6>
+        <div class="col-12 col-md-4">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-header bg-transparent border-bottom-0">
+                    <strong>Produto com pior margem</strong>
                 </div>
                 <div class="card-body">
                     {% if produto_pior_margem %}
-                        <p class="mb-1 fw-semibold">
-                            {{ produto_pior_margem[0] }}
-                        </p>
+                        <p class="mb-1 fw-semibold">{{ produto_pior_margem[0] }}</p>
                         <small class="text-muted">
-                            Margem de contribuição: R$ {{ '%.2f'|format(produto_pior_margem[1] or 0) }}
+                            Margem de R$ {{ '%.2f'|format(produto_pior_margem[1] or 0) }} no período.
                         </small>
                     {% else %}
-                        <p class="text-muted mb-0">Ainda não há dados suficientes para análise.</p>
+                        <p class="text-muted mb-0">Nenhuma venda no período selecionado.</p>
                     {% endif %}
                 </div>
             </div>
