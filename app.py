@@ -2,7 +2,10 @@ import os
 from datetime import datetime, date, timedelta
 from io import BytesIO
 
-from flask import Flask, render_template, request, redirect, url_for, flash, send_file
+from flask import (
+    Flask, render_template, request, redirect,
+    url_for, flash, send_file, session
+)
 from werkzeug.utils import secure_filename
 
 from sqlalchemy import (
@@ -30,6 +33,9 @@ UPLOAD_FOLDER = os.environ.get("UPLOAD_FOLDER", "uploads")
 app = Flask(__name__)
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 app.secret_key = os.environ.get("SECRET_KEY", "metrifypremium-secret")
+# Usuário e senha do admin
+ADMIN_USER = os.environ.get("ADMIN_USER", "admin")
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "admin123")
 
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
@@ -248,6 +254,48 @@ def importar_vendas_ml(caminho_arquivo, engine: Engine):
 # --------------------------------------------------------------------
 # Rotas principais
 # --------------------------------------------------------------------
+@app.before_request
+def exigir_login():
+    """Bloqueia acesso se não estiver logado, exceto em /login e arquivos estáticos."""
+    # endpoint pode ser None em alguns casos (tipo erro)
+    endpoint = request.endpoint or ""
+
+    # Rotas liberadas SEM login
+    rotas_livres = {"login", "static"}
+
+    if endpoint in rotas_livres:
+        return  # deixa passar
+
+    # Se não estiver logado, manda para /login
+    if not session.get("logged_in"):
+        next_url = request.path
+        return redirect(url_for("login", next=next_url))
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if request.method == "POST":
+        username = request.form.get("username", "").strip()
+        password = request.form.get("password", "").strip()
+
+        if username == ADMIN_USER and password == ADMIN_PASSWORD:
+            session["logged_in"] = True
+            session["username"] = username
+            flash("Login realizado com sucesso!", "success")
+
+            # Se tiver "next" na query, volta pra lá; senão, para o dashboard
+            next_url = request.args.get("next") or url_for("dashboard")
+            return redirect(next_url)
+
+        flash("Usuário ou senha inválidos.", "danger")
+
+    return render_template("login.html")
+
+
+@app.route("/logout")
+def logout():
+    session.clear()
+    flash("Você saiu do sistema.", "info")
+    return redirect(url_for("login"))        
+
 @app.route("/")
 def dashboard():
     # --- filtro de período ---
