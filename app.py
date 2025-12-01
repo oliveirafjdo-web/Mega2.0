@@ -1076,7 +1076,40 @@ def relatorio_lucro():
         imposto_percent=imposto_percent,
         despesas_percent=despesas_percent,
     )
+@app.route("/relatorio_lucro/exportar")
+def relatorio_lucro_exportar():
+    with engine.connect() as conn:
+        rows = conn.execute(
+            select(
+                produtos.c.nome.label("Produto"),
+                func.sum(vendas.c.quantidade).label("Quantidade"),
+                func.sum(vendas.c.receita_total).label("Receita"),
+                func.sum(vendas.c.custo_total).label("Custo"),
+                func.sum(vendas.c.margem_contribuicao).label("Margem"),
+            )
+            .select_from(vendas.join(produtos))
+            .group_by(produtos.c.id)
+        ).mappings().all()
 
+    import pandas as pd
+    from io import BytesIO
+
+    df = pd.DataFrame(rows)
+
+    # Criar arquivo Excel na memória
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine="openpyxl") as writer:
+        df.to_excel(writer, index=False, sheet_name="RelatorioLucro")
+
+    output.seek(0)
+
+    from flask import send_file
+    return send_file(
+        output,
+        as_attachment=True,
+        download_name=f"relatorio_lucro_{datetime.now().date()}.xlsx",
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
 
 # --------------------------------------------------------------------
 # Inicialização
