@@ -77,7 +77,7 @@
 
                         <div class="mb-1">
                             <span class="badge bg-light text-dark me-2">
-                                Período: mês atual ({{ janela_dias }} dias corridos)
+                                Período: últimos {{ janela_dias }} dias
                             </span>
                             <span class="badge bg-light text-dark">
                                 Estoque mínimo: {{ dias_minimos }} dias
@@ -85,8 +85,8 @@
                         </div>
 
                         <small class="text-muted d-block">
-                            A média diária é calculada somando todas as vendas do mês atual (do dia 1 até hoje)
-                            dividido por {{ janela_dias }} dias corridos.
+                            A média diária é calculada somando todas as vendas dos últimos {{ janela_dias }} dias
+                            e dividindo por {{ janela_dias }}.
                         </small>
 
                         <small class="text-muted d-block">
@@ -99,7 +99,7 @@
                         </small>
                     </div>
 
-                    <div class="ms-3 d-flex alinh-items-center">
+                    <div class="ms-3 d-flex align-items-center">
                         <div class="rounded-circle bg-info bg-opacity-10 p-3">
                             <i class="bi bi-info-circle text-info fs-4"></i>
                         </div>
@@ -173,7 +173,7 @@
                                 <td class="text-center">
                                     {% if p.dias_cobertura is none %}
                                         <span class="badge bg-secondary-subtle text-secondary">
-                                            Sem venda neste mês
+                                            Sem venda no período
                                         </span>
                                     {% elif p.precisa_repor %}
                                         <span class="badge bg-danger-subtle text-danger">
