@@ -776,22 +776,13 @@ def exportar_template():
 # ---------------- ESTOQUE / AJUSTES ----------------
 @app.route("/estoque")
 def estoque_view():
-    """Visão de estoque com médias de venda e previsão de cobertura.
+    """Visão de estoque com médias reais dos últimos 30 dias."""
 
-    NOVO CRITÉRIO:
-    - média_diaria: média de unidades vendidas por dia no mês corrente
-      (do 1º dia do mês até a data atual)
-    - média_mensal: média_diaria * 30  (projeção de venda mensal)
-    - dias_cobertura: estoque_atual / média_diaria
-    - precisa_repor: True se dias_cobertura < dias_minimos
-    """
-
-    DIAS_MINIMOS = 15     # estoque mínimo desejado em dias
+    JANELA_DIAS = 30     # FIXO: últimos 30 dias sempre
+    DIAS_MINIMOS = 15    # estoque mínimo desejado em dias
 
     hoje = datetime.now()
-    # início do mês atual
-    inicio_mes = hoje.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-    dias_corridos_mes = (hoje.date() - inicio_mes.date()).days + 1
+    limite_30dias = hoje - timedelta(days=JANELA_DIAS)
 
     with engine.connect() as conn:
         # Produtos
@@ -805,7 +796,7 @@ def estoque_view():
             ).order_by(produtos.c.nome)
         ).mappings().all()
 
-        # Vendas (só o necessário)
+        # Vendas (todas, vamos filtrar via Python)
         vendas_rows = conn.execute(
             select(
                 vendas.c.produto_id,
@@ -814,7 +805,7 @@ def estoque_view():
             )
         ).mappings().all()
 
-    # Soma de vendas por produto dentro do MÊS ATUAL
+    # Soma das vendas por produto dentro da janela (últimos 30 dias)
     vendas_por_produto = {}
 
     for v in vendas_rows:
@@ -825,55 +816,58 @@ def estoque_view():
         if not data_raw:
             continue
 
-        dt = parse_data_venda(data_raw)
+        # tenta converter para datetime
+        dt = None
+        try:
+            dt = parse_data_venda(data_raw)
+        except:
+            try:
+                dt = datetime.fromisoformat(str(data_raw))
+            except:
+                continue
+
         if dt is None:
             continue
 
-        if dt < inicio_mes or dt > hoje:
+        # só considera vendas dentro dos últimos 30 dias
+        if dt < limite_30dias or dt > hoje:
             continue
 
         vendas_por_produto[pid] = vendas_por_produto.get(pid, 0) + qtd
 
-    # Monta lista enriquecida de produtos + totais de estoque
+    # Construção da tabela
     produtos_enriquecidos = []
-    total_unidades_estoque = 0.0
-    total_custo_estoque = 0.0
+    total_unidades_estoque = 0
+    total_custo_estoque = 0
 
     for p in produtos_rows:
         pid = p["id"]
         estoque_atual = float(p["estoque_atual"] or 0)
-        qtd_mes = float(vendas_por_produto.get(pid, 0))
+        qtd_30dias = float(vendas_por_produto.get(pid, 0))
         custo_unitario = float(p["custo_unitario"] or 0)
         custo_estoque = estoque_atual * custo_unitario
 
-        media_diaria = (
-            qtd_mes / dias_corridos_mes if dias_corridos_mes > 0 else 0.0
-        )
+        # Média diária usando sempre 30 dias
+        media_diaria = qtd_30dias / 30.0
         media_mensal = media_diaria * 30.0
 
-        if media_diaria > 0:
-            dias_cobertura = estoque_atual / media_diaria
-        else:
-            dias_cobertura = None
+        # Cobertura
+        dias_cobertura = estoque_atual / media_diaria if media_diaria > 0 else None
 
-        precisa_repor = (
-            dias_cobertura is not None and dias_cobertura < DIAS_MINIMOS
-        )
+        precisa_repor = dias_cobertura is not None and dias_cobertura < DIAS_MINIMOS
 
-        produtos_enriquecidos.append(
-            {
-                "id": pid,
-                "nome": p["nome"],
-                "sku": p["sku"],
-                "estoque_atual": estoque_atual,
-                "custo_unitario": custo_unitario,
-                "custo_estoque": custo_estoque,
-                "media_diaria": media_diaria,
-                "media_mensal": media_mensal,
-                "dias_cobertura": dias_cobertura,
-                "precisa_repor": precisa_repor,
-            }
-        )
+        produtos_enriquecidos.append({
+            "id": pid,
+            "nome": p["nome"],
+            "sku": p["sku"],
+            "estoque_atual": estoque_atual,
+            "custo_unitario": custo_unitario,
+            "custo_estoque": custo_estoque,
+            "media_diaria": media_diaria,
+            "media_mensal": media_mensal,
+            "dias_cobertura": dias_cobertura,
+            "precisa_repor": precisa_repor,
+        })
 
         total_unidades_estoque += estoque_atual
         total_custo_estoque += custo_estoque
@@ -881,12 +875,11 @@ def estoque_view():
     return render_template(
         "estoque.html",
         produtos=produtos_enriquecidos,
-        janela_dias=dias_corridos_mes,
+        janela_dias=30,
         dias_minimos=DIAS_MINIMOS,
         total_unidades_estoque=total_unidades_estoque,
         total_custo_estoque=total_custo_estoque,
     )
-
 
 # GET – formulário de ajuste
 @app.route("/estoque/ajuste", methods=["GET"])
