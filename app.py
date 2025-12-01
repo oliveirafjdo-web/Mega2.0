@@ -1022,10 +1022,21 @@ def configuracoes_view():
 # ---------------- RELATÓRIO LUCRO ----------------
 @app.route("/relatorio_lucro")
 def relatorio_lucro():
-    """Relatório de lucro detalhado por produto.
+    """Relatório de lucro detalhado por produto, com filtro de período.
 
+    Por padrão: mês vigente (do dia 1 até hoje).
     Margem líquida = Receita - Comissão ML - Custo - Despesas - Imposto
     """
+
+    # --- período: vem da URL ou cai para mês vigente ---
+    data_inicio = request.args.get("data_inicio") or ""
+    data_fim = request.args.get("data_fim") or ""
+
+    if not data_inicio and not data_fim:
+        hoje = date.today()
+        inicio_mes = hoje.replace(day=1)
+        data_inicio = inicio_mes.isoformat()
+        data_fim = hoje.isoformat()
 
     with engine.connect() as conn:
         cfg = conn.execute(
@@ -1036,7 +1047,8 @@ def relatorio_lucro():
         imposto_percent = float(cfg.get("imposto_percent") or 0)
         despesas_percent = float(cfg.get("despesas_percent") or 0)
 
-        rows = conn.execute(
+        # monta query com filtro de datas
+        query = (
             select(
                 produtos.c.nome.label("produto"),
                 func.sum(vendas.c.quantidade).label("qtd"),
@@ -1045,8 +1057,15 @@ def relatorio_lucro():
                 func.sum(vendas.c.margem_contribuicao).label("margem_atual"),
             )
             .select_from(vendas.join(produtos))
-            .group_by(produtos.c.id)
-        ).mappings().all()
+        )
+
+        if data_inicio:
+            query = query.where(vendas.c.data_venda >= data_inicio)
+        if data_fim:
+            query = query.where(vendas.c.data_venda <= data_fim + "T23:59:59")
+
+        query = query.group_by(produtos.c.id)
+        rows = conn.execute(query).mappings().all()
 
     linhas = []
     totais = {
@@ -1064,6 +1083,7 @@ def relatorio_lucro():
         custo = float(r["custo"] or 0)
         margem_atual = float(r["margem_atual"] or 0)
 
+        # Comissão estimada do ML
         comissao_ml = max(0.0, (receita - custo) - margem_atual)
 
         imposto_val = receita * (imposto_percent / 100.0)
@@ -1091,6 +1111,7 @@ def relatorio_lucro():
         totais["despesas"] += despesas_val
         totais["margem_liquida"] += margem_liquida
 
+    # Ordena do maior lucro líquido para o menor
     linhas.sort(key=lambda x: x["margem_liquida"], reverse=True)
 
     return render_template(
@@ -1099,10 +1120,21 @@ def relatorio_lucro():
         totais=totais,
         imposto_percent=imposto_percent,
         despesas_percent=despesas_percent,
+        data_inicio=data_inicio,
+        data_fim=data_fim,
     )
 @app.route("/relatorio_lucro/exportar")
 def relatorio_lucro_exportar():
-    # Mesma lógica do relatorio_lucro, mas gerando um DataFrame
+    # mesmo critério de período do relatorio_lucro
+    data_inicio = request.args.get("data_inicio") or ""
+    data_fim = request.args.get("data_fim") or ""
+
+    if not data_inicio and not data_fim:
+        hoje = date.today()
+        inicio_mes = hoje.replace(day=1)
+        data_inicio = inicio_mes.isoformat()
+        data_fim = hoje.isoformat()
+
     with engine.connect() as conn:
         cfg = conn.execute(
             select(configuracoes)
@@ -1112,7 +1144,7 @@ def relatorio_lucro_exportar():
         imposto_percent = float(cfg.get("imposto_percent") or 0)
         despesas_percent = float(cfg.get("despesas_percent") or 0)
 
-        rows = conn.execute(
+        query = (
             select(
                 produtos.c.nome.label("produto"),
                 func.sum(vendas.c.quantidade).label("qtd"),
@@ -1121,10 +1153,17 @@ def relatorio_lucro_exportar():
                 func.sum(vendas.c.margem_contribuicao).label("margem_atual"),
             )
             .select_from(vendas.join(produtos))
-            .group_by(produtos.c.id)
-        ).mappings().all()
+        )
 
-    linhas = []
+        if data_inicio:
+            query = query.where(vendas.c.data_venda >= data_inicio)
+        if data_fim:
+            query = query.where(vendas.c.data_venda <= data_fim + "T23:59:59")
+
+        query = query.group_by(produtos.c.id)
+        rows = conn.execute(query).mappings().all()
+
+    linhas_export = []
 
     for r in rows:
         receita = float(r["receita"] or 0)
@@ -1132,15 +1171,12 @@ def relatorio_lucro_exportar():
         margem_atual = float(r["margem_atual"] or 0)
         qtd = float(r["qtd"] or 0)
 
-        # Estimativa da comissão do ML
         comissao_ml = max(0.0, (receita - custo) - margem_atual)
-
         imposto_val = receita * (imposto_percent / 100.0)
         despesas_val = receita * (despesas_percent / 100.0)
-
         margem_liquida = receita - custo - comissao_ml - imposto_val - despesas_val
 
-        linhas.append({
+        linhas_export.append({
             "Produto": r["produto"],
             "Quantidade": qtd,
             "Receita (R$)": receita,
@@ -1151,8 +1187,7 @@ def relatorio_lucro_exportar():
             "Lucro líquido (R$)": margem_liquida,
         })
 
-    # Monta o Excel
-    df = pd.DataFrame(linhas)
+    df = pd.DataFrame(linhas_export)
     output = BytesIO()
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
         df.to_excel(writer, index=False, sheet_name="RelatorioLucro")
