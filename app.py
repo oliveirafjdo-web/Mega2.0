@@ -15,18 +15,94 @@ from sqlalchemy import (
 )
 from sqlalchemy.engine import Engine
 import pandas as pd
-from functools import wraps
 
-def login_required(f):
-    @wraps(f)
-    def wrapper(*args, **kwargs):
-        if not session.get("usuario_id"):
-            return redirect(url_for("login"))
-        return f(*args, **kwargs)
-    return wrapper
-    # ----------------------------------------------------------------------------
-# INICIALIZAÇÃO
+
 # ----------------------------------------------------------------------------
+# CONFIGURAÇÃO BÁSICA DO APP
+# ----------------------------------------------------------------------------
+
+app = Flask(__name__)
+app.secret_key = os.environ.get("SECRET_KEY", "metrifypremium-secret")
+
+# Usuário admin (defina no Render em ENV VARS)
+ADMIN_USER = os.environ.get("ADMIN_USER", "admin")
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "admin123")
+
+# Pasta de upload
+UPLOAD_FOLDER = os.environ.get("UPLOAD_FOLDER", "uploads")
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
+
+
+# ----------------------------------------------------------------------------
+# CONFIGURAÇÃO DO BANCO (POSTGRES NO RENDER / SQLITE LOCAL)
+# ----------------------------------------------------------------------------
+
+raw_db_url = os.environ.get("DATABASE_URL")
+
+if raw_db_url:
+    # Render às vezes entrega "postgres://", o SQLAlchemy quer "postgresql+psycopg2://"
+    if raw_db_url.startswith("postgres://"):
+        raw_db_url = raw_db_url.replace("postgres://", "postgresql+psycopg2://", 1)
+    DATABASE_URL = raw_db_url
+else:
+    # fallback local
+    DATABASE_URL = "sqlite:////tmp/metrifiy.db"
+
+engine: Engine = create_engine(DATABASE_URL, future=True)
+metadata = MetaData()
+
+
+# ----------------------------------------------------------------------------
+# DEFINIÇÃO DAS TABELAS
+# ----------------------------------------------------------------------------
+
+produtos = Table(
+    "produtos", metadata,
+    Column("id", Integer, primary_key=True),
+    Column("nome", String(255), nullable=False),
+    Column("sku", String(100), unique=True),
+    Column("custo_unitario", Float, nullable=False, server_default="0"),
+    Column("preco_venda_sugerido", Float, nullable=False, server_default="0"),
+    Column("estoque_inicial", Integer, nullable=False, server_default="0"),
+    Column("estoque_atual", Integer, nullable=False, server_default="0"),
+    Column("curva", String(1)),
+)
+
+vendas = Table(
+    "vendas", metadata,
+    Column("id", Integer, primary_key=True),
+    Column("produto_id", Integer, ForeignKey("produtos.id"), nullable=False),
+    Column("data_venda", String(50)),
+    Column("quantidade", Integer, nullable=False),
+    Column("preco_venda_unitario", Float, nullable=False),
+    Column("receita_total", Float, nullable=False),
+    Column("custo_total", Float, nullable=False),
+    Column("margem_contribuicao", Float, nullable=False),
+    Column("origem", String(50)),
+    Column("numero_venda_ml", String(100)),
+    Column("lote_importacao", String(50)),
+)
+
+ajustes_estoque = Table(
+    "ajustes_estoque", metadata,
+    Column("id", Integer, primary_key=True),
+    Column("produto_id", Integer, ForeignKey("produtos.id"), nullable=False),
+    Column("data_ajuste", String(50)),
+    Column("tipo", String(20)),  # entrada ou saida
+    Column("quantidade", Integer),
+    Column("custo_unitario", Float),
+    Column("observacao", String(255)),
+)
+
+configuracoes = Table(
+    "configuracoes", metadata,
+    Column("id", Integer, primary_key=True),
+    Column("imposto_percent", Float, nullable=False, server_default="0"),
+    Column("despesas_percent", Float, nullable=False, server_default="0"),
+)
+
+
 # ----------------------------------------------------------------------------
 # INICIALIZAÇÃO DO BANCO
 # ----------------------------------------------------------------------------
@@ -46,47 +122,27 @@ def init_db():
                     despesas_percent=0.0
                 )
             )
-init_db()
-# ----------------------------------------------------------------------------
-# EXECUÇÃO
-# ----------------------------------------------------------------------------
-
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    app.run(debug=True, host="0.0.0.0", port=port)
-# ----------------------------------------------------------------------------
-# CONFIGURAÇÃO DO APLICATIVO E LOGIN
-# ----------------------------------------------------------------------------
-
-app = Flask(__name__)
-app.secret_key = os.environ.get("SECRET_KEY", "metrifypremium-secret")
-
-# Variáveis de administrador
-ADMIN_USER = os.environ.get("ADMIN_USER", "admin")
-ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "admin123")
-
-UPLOAD_FOLDER = os.environ.get("UPLOAD_FOLDER", "uploads")
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 
 
 # ----------------------------------------------------------------------------
-# DECORATOR PARA PROTEGER ROTAS
+# DECORATOR DE LOGIN
 # ----------------------------------------------------------------------------
 
 def login_required(view_func):
-    """Impede acesso a rotas sem login."""
+    """Decorator para proteger rotas. Redireciona para /login se não estiver logado."""
     @wraps(view_func)
-    def wrapper(*args, **kwargs):
+    def wrapped_view(*args, **kwargs):
         if not session.get("logged_in"):
-            return redirect(url_for("login", next=request.path))
+            next_url = request.path
+            return redirect(url_for("login", next=next_url))
         return view_func(*args, **kwargs)
-    return wrapper
+    return wrapped_view
 
 
 # ----------------------------------------------------------------------------
-# ROTA DE LOGIN
+# ROTAS DE LOGIN / LOGOUT
 # ----------------------------------------------------------------------------
+
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
@@ -101,7 +157,7 @@ def login():
             next_url = request.args.get("next") or url_for("dashboard")
             return redirect(next_url)
 
-        flash("Usuário ou senha inválidos!", "danger")
+        flash("Usuário ou senha inválidos.", "danger")
 
     return render_template("login.html")
 
@@ -109,10 +165,8 @@ def login():
 @app.route("/logout")
 def logout():
     session.clear()
-    flash("Sessão encerrada.", "info")
+    flash("Você saiu do sistema.", "info")
     return redirect(url_for("login"))
-
-
 # ----------------------------------------------------------------------------
 # CONFIGURAÇÃO DO BANCO (POSTGRES OU SQLITE)
 # ----------------------------------------------------------------------------
