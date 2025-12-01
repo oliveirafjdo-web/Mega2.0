@@ -1078,39 +1078,68 @@ def relatorio_lucro():
     )
 @app.route("/relatorio_lucro/exportar")
 def relatorio_lucro_exportar():
+    # Mesma lógica do relatorio_lucro, mas gerando um DataFrame
     with engine.connect() as conn:
+        cfg = conn.execute(
+            select(configuracoes)
+            .where(configuracoes.c.id == 1)
+        ).mappings().first() or {}
+
+        imposto_percent = float(cfg.get("imposto_percent") or 0)
+        despesas_percent = float(cfg.get("despesas_percent") or 0)
+
         rows = conn.execute(
             select(
-                produtos.c.nome.label("Produto"),
-                func.sum(vendas.c.quantidade).label("Quantidade"),
-                func.sum(vendas.c.receita_total).label("Receita"),
-                func.sum(vendas.c.custo_total).label("Custo"),
-                func.sum(vendas.c.margem_contribuicao).label("Margem"),
+                produtos.c.nome.label("produto"),
+                func.sum(vendas.c.quantidade).label("qtd"),
+                func.sum(vendas.c.receita_total).label("receita"),
+                func.sum(vendas.c.custo_total).label("custo"),
+                func.sum(vendas.c.margem_contribuicao).label("margem_atual"),
             )
             .select_from(vendas.join(produtos))
             .group_by(produtos.c.id)
         ).mappings().all()
 
-    import pandas as pd
-    from io import BytesIO
+    linhas = []
 
-    df = pd.DataFrame(rows)
+    for r in rows:
+        receita = float(r["receita"] or 0)
+        custo = float(r["custo"] or 0)
+        margem_atual = float(r["margem_atual"] or 0)
+        qtd = float(r["qtd"] or 0)
 
-    # Criar arquivo Excel na memória
+        # Estimativa da comissão do ML
+        comissao_ml = max(0.0, (receita - custo) - margem_atual)
+
+        imposto_val = receita * (imposto_percent / 100.0)
+        despesas_val = receita * (despesas_percent / 100.0)
+
+        margem_liquida = receita - custo - comissao_ml - imposto_val - despesas_val
+
+        linhas.append({
+            "Produto": r["produto"],
+            "Quantidade": qtd,
+            "Receita (R$)": receita,
+            "Custo (R$)": custo,
+            "Comissão ML (R$)": comissao_ml,
+            "Imposto (R$)": imposto_val,
+            "Despesas (R$)": despesas_val,
+            "Lucro líquido (R$)": margem_liquida,
+        })
+
+    # Monta o Excel
+    df = pd.DataFrame(linhas)
     output = BytesIO()
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
         df.to_excel(writer, index=False, sheet_name="RelatorioLucro")
-
     output.seek(0)
 
-    from flask import send_file
     return send_file(
         output,
         as_attachment=True,
         download_name=f"relatorio_lucro_{datetime.now().date()}.xlsx",
         mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     )
-
 # --------------------------------------------------------------------
 # Inicialização
 # --------------------------------------------------------------------
