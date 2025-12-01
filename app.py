@@ -27,7 +27,25 @@ def login_required(f):
     # ----------------------------------------------------------------------------
 # INICIALIZAÇÃO
 # ----------------------------------------------------------------------------
+# ----------------------------------------------------------------------------
+# INICIALIZAÇÃO DO BANCO
+# ----------------------------------------------------------------------------
 
+def init_db():
+    """Cria as tabelas se não existirem e garante 1 linha em configuracoes."""
+    metadata.create_all(engine)
+    with engine.begin() as conn:
+        row = conn.execute(
+            select(configuracoes.c.id).limit(1)
+        ).first()
+        if not row:
+            conn.execute(
+                insert(configuracoes).values(
+                    id=1,
+                    imposto_percent=0.0,
+                    despesas_percent=0.0
+                )
+            )
 init_db()
 # ----------------------------------------------------------------------------
 # EXECUÇÃO
@@ -1201,3 +1219,10 @@ def logout():
     session.clear()
     flash("Sessão encerrada!", "success")
     return redirect(url_for("login"))
+    # Inicialização
+init_db()
+
+# Execução
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 5000))
+    app.run(debug=True, host="0.0.0.0", port=port)
