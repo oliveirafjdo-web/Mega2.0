@@ -250,8 +250,14 @@ def importar_vendas_ml(caminho_arquivo, engine: Engine):
 # --------------------------------------------------------------------
 @app.route("/")
 def dashboard():
+    # Período: mês vigente (do dia 1 até hoje)
+    hoje = date.today()
+    inicio_mes = hoje.replace(day=1)
+    data_inicio = inicio_mes.isoformat()
+    data_fim = hoje.isoformat()
+
     with engine.connect() as conn:
-        # Totais básicos
+        # Totais básicos (não dependem de período)
         total_produtos = conn.execute(
             select(func.count()).select_from(produtos)
         ).scalar_one()
@@ -260,17 +266,25 @@ def dashboard():
             select(func.coalesce(func.sum(produtos.c.estoque_atual), 0))
         ).scalar_one()
 
-        # Totais de vendas: MESMA BASE DO RELATÓRIO DE LUCRO
+        # ===== TOTAS DE VENDAS DO MÊS ATUAL =====
+        filtro_data = [
+            vendas.c.data_venda >= data_inicio,
+            vendas.c.data_venda <= data_fim + "T23:59:59",
+        ]
+
         receita_total = conn.execute(
             select(func.coalesce(func.sum(vendas.c.receita_total), 0))
+            .where(*filtro_data)
         ).scalar_one()
 
         custo_total = conn.execute(
             select(func.coalesce(func.sum(vendas.c.custo_total), 0))
+            .where(*filtro_data)
         ).scalar_one()
 
         margem_total = conn.execute(
             select(func.coalesce(func.sum(vendas.c.margem_contribuicao), 0))
+            .where(*filtro_data)
         ).scalar_one()
 
         # Configurações (imposto / despesas)
@@ -286,14 +300,14 @@ def dashboard():
         if comissao_total < 0:
             comissao_total = 0.0
 
-        # Imposto e despesas totais
+        # Imposto e despesas totais (sobre a receita do mês)
         imposto_total = receita_total * (imposto_percent / 100.0)
         despesas_total = receita_total * (despesas_percent / 100.0)
 
         # Receita líquida (bruta - comissão - imposto - despesas)
         receita_liquida_total = receita_total - comissao_total - imposto_total - despesas_total
 
-        # Lucro líquido
+        # Lucro líquido (TEM QUE BATER COM O RELATÓRIO DE LUCRO DO MÊS)
         lucro_liquido_total = (
             receita_total
             - custo_total
@@ -309,37 +323,44 @@ def dashboard():
             else 0.0
         )
 
-        # Margem média de contribuição
+        # Margem média de contribuição (%)
         margem_ = (
             (margem_total / receita_total) * 100.0
             if receita_total > 0
             else 0.0
         )
 
-        # Ticket médio
+        # Ticket médio (somente vendas do mês)
         ticket_medio = conn.execute(
             select(func.coalesce(func.avg(vendas.c.preco_venda_unitario), 0))
+            .where(*filtro_data)
         ).scalar_one()
 
+        # Produto mais vendido no mês
         produto_mais_vendido = conn.execute(
             select(produtos.c.nome, func.sum(vendas.c.quantidade).label("qtd"))
             .select_from(vendas.join(produtos))
+            .where(*filtro_data)
             .group_by(produtos.c.id)
             .order_by(func.sum(vendas.c.quantidade).desc())
             .limit(1)
         ).first()
 
+        # Produto com maior lucro no mês
         produto_maior_lucro = conn.execute(
             select(produtos.c.nome, func.sum(vendas.c.margem_contribuicao).label("lucro"))
             .select_from(vendas.join(produtos))
+            .where(*filtro_data)
             .group_by(produtos.c.id)
             .order_by(func.sum(vendas.c.margem_contribuicao).desc())
             .limit(1)
         ).first()
 
+        # Produto com pior margem no mês
         produto_pior_margem = conn.execute(
             select(produtos.c.nome, func.sum(vendas.c.margem_contribuicao).label("margem"))
             .select_from(vendas.join(produtos))
+            .where(*filtro_data)
             .group_by(produtos.c.id)
             .order_by(func.sum(vendas.c.margem_contribuicao).asc())
             .limit(1)
@@ -361,7 +382,10 @@ def dashboard():
         produto_mais_vendido=produto_mais_vendido,
         produto_maior_lucro=produto_maior_lucro,
         produto_pior_margem=produto_pior_margem,
-        cfg=cfg
+        cfg=cfg,
+        # se quiser usar no template (ex.: "Mês de novembro")
+        data_inicio=data_inicio,
+        data_fim=data_fim,
     )
 
 
