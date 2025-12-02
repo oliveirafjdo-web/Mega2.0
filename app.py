@@ -34,7 +34,7 @@ app = Flask(__name__)
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 app.secret_key = os.environ.get("SECRET_KEY", "metrifypremium-secret")
 # Usuário e senha do admin
-ADMIN_USER = os.environ.get("ADMIN_USER", "julio")
+ADMIN_USER = os.environ.get("ADMIN_USER", "oliveirafjdo@gmail.com")
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "juliooliveira")
 
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
