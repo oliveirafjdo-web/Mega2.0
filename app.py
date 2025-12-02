@@ -312,6 +312,25 @@ def login():
         flash("Usuário ou senha inválidos.", "danger")
 
     return render_template("login.html")
+    # --------------------------------------------------------------------
+# ROTA PARA CRIAR ADMIN (USO ÚNICO)
+# --------------------------------------------------------------------
+from werkzeug.security import generate_password_hash
+
+@app.route("/criar_admin")
+def criar_admin():
+    email = "admin@admin.com"
+    senha = "1234"
+
+    senha_hash = generate_password_hash(senha)
+
+    with engine.begin() as conn:
+        conn.execute(users.insert().values(
+            email=email,
+            senha=senha_hash
+        ))
+
+    return f"Usuário criado: {email} / {senha}"
 
 
 @app.route("/logout")
