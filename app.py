@@ -130,6 +130,7 @@ def criar_usuario_admin():
             )
         )
         print("Usuário admin criado automaticamente!")
+        criar_usuario_admin()
 
 # --------------------------------------------------------------------
 # Utilidades para datas
