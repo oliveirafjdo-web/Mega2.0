@@ -106,7 +106,30 @@ def init_db():
             conn.execute(
                 insert(configuracoes).values(id=1, imposto_percent=0.0, despesas_percent=0.0)
             )
+def criar_usuario_admin():
+    admin_email = os.environ.get("ADMIN_EMAIL")
+    admin_password = os.environ.get("ADMIN_PASSWORD")
 
+    if not admin_email or not admin_password:
+        print("ADMIN_EMAIL ou ADMIN_PASSWORD não configurados. Ignorando criação de usuário admin.")
+        return
+
+    with engine.begin() as conn:
+        existente = conn.execute(
+            select(usuarios.c.id).where(usuarios.c.email == admin_email)
+        ).first()
+
+        if existente:
+            print("Usuário admin já existe.")
+            return
+
+        conn.execute(
+            insert(usuarios).values(
+                email=admin_email,
+                senha=admin_password
+            )
+        )
+        print("Usuário admin criado automaticamente!")
 
 # --------------------------------------------------------------------
 # Utilidades para datas
