@@ -2,10 +2,7 @@ import os
 from datetime import datetime, date, timedelta
 from io import BytesIO
 
-from flask import (
-    Flask, render_template, request, redirect,
-    url_for, flash, send_file, session
-)
+from flask import Flask, render_template, request, redirect, url_for, flash, send_file
 from werkzeug.utils import secure_filename
 
 from sqlalchemy import (
@@ -33,9 +30,6 @@ UPLOAD_FOLDER = os.environ.get("UPLOAD_FOLDER", "uploads")
 app = Flask(__name__)
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 app.secret_key = os.environ.get("SECRET_KEY", "metrifypremium-secret")
-# Usuário e senha do admin
-ADMIN_USER = os.environ.get("ADMIN_USER", "oliveirafjdo@gmail.com")
-ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "juliooliveira")
 
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
@@ -106,31 +100,7 @@ def init_db():
             conn.execute(
                 insert(configuracoes).values(id=1, imposto_percent=0.0, despesas_percent=0.0)
             )
-def criar_usuario_admin():
-    admin_email = os.environ.get("ADMIN_EMAIL")
-    admin_password = os.environ.get("ADMIN_PASSWORD")
 
-    if not admin_email or not admin_password:
-        print("ADMIN_EMAIL ou ADMIN_PASSWORD não configurados. Ignorando criação de usuário admin.")
-        return
-
-    with engine.begin() as conn:
-        existente = conn.execute(
-            select(usuarios.c.id).where(usuarios.c.email == admin_email)
-        ).first()
-
-        if existente:
-            print("Usuário admin já existe.")
-            return
-
-        conn.execute(
-            insert(usuarios).values(
-                email=admin_email,
-                senha=admin_password
-            )
-        )
-        print("Usuário admin criado automaticamente!")
-        criar_usuario_admin()
 
 # --------------------------------------------------------------------
 # Utilidades para datas
@@ -278,67 +248,6 @@ def importar_vendas_ml(caminho_arquivo, engine: Engine):
 # --------------------------------------------------------------------
 # Rotas principais
 # --------------------------------------------------------------------
-@app.before_request
-def exigir_login():
-    """Bloqueia acesso se não estiver logado, exceto em /login e arquivos estáticos."""
-    # endpoint pode ser None em alguns casos (tipo erro)
-    endpoint = request.endpoint or ""
-
-    # Rotas liberadas SEM login
-    rotas_livres = {"login", "static"}
-
-    if endpoint in rotas_livres:
-        return  # deixa passar
-
-    # Se não estiver logado, manda para /login
-    if not session.get("logged_in"):
-        next_url = request.path
-        return redirect(url_for("login", next=next_url))
-@app.route("/login", methods=["GET", "POST"])
-def login():
-    if request.method == "POST":
-        username = request.form.get("username", "").strip()
-        password = request.form.get("password", "").strip()
-
-        if username == ADMIN_USER and password == ADMIN_PASSWORD:
-            session["logged_in"] = True
-            session["username"] = username
-            flash("Login realizado com sucesso!", "success")
-
-            # Se tiver "next" na query, volta pra lá; senão, para o dashboard
-            next_url = request.args.get("next") or url_for("dashboard")
-            return redirect(next_url)
-
-        flash("Usuário ou senha inválidos.", "danger")
-
-    return render_template("login.html")
-    # --------------------------------------------------------------------
-# ROTA PARA CRIAR ADMIN (USO ÚNICO)
-# --------------------------------------------------------------------
-from werkzeug.security import generate_password_hash
-
-@app.route("/criar_admin")
-def criar_admin():
-    email = "admin@admin.com"
-    senha = "1234"
-
-    senha_hash = generate_password_hash(senha)
-
-    with engine.begin() as conn:
-        conn.execute(users.insert().values(
-            email=email,
-            senha=senha_hash
-        ))
-
-    return f"Usuário criado: {email} / {senha}"
-
-
-@app.route("/logout")
-def logout():
-    session.clear()
-    flash("Você saiu do sistema.", "info")
-    return redirect(url_for("login"))        
-
 @app.route("/")
 def dashboard():
     # --- filtro de período ---
