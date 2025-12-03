@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Estoque - Metrify{% endblock %}
+{% block title %}Estoque e Reposição - Metrify{% endblock %}
 
 {% block content %}
 <div class="container-fluid py-4">
@@ -10,9 +10,14 @@
         <div>
             <h1 class="h3 mb-1">Estoque e Reposição</h1>
             <p class="text-muted mb-0">
-                Acompanhe o estoque atual, custo total, receita potencial e previsão de cobertura por produto.
+                Acompanhe o estoque atual, custo total, potencial de lucro e previsão de cobertura por produto.
             </p>
         </div>
+
+        <!-- Botão de ajuste de estoque (abre modal) -->
+        <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#ajusteEstoqueModal">
+            Ajustar estoque
+        </button>
     </div>
 
     <!-- Cards de totais de estoque -->
@@ -41,7 +46,7 @@
             </div>
         </div>
 
-        <!-- Custo total do estoque + Receita potencial -->
+        <!-- Custo total do estoque -->
         <div class="col-12 col-md-6 col-xl-4">
             <div class="card shadow-sm border-0 h-100">
                 <div class="card-body d-flex">
@@ -52,12 +57,8 @@
                         <div class="h4 mb-0">
                             R$ {{ '%.2f'|format(total_custo_estoque or 0) }}
                         </div>
-                        <small class="text-muted d-block">
+                        <small class="text-muted">
                             Estoque atual multiplicado pelo custo unitário de cada produto.
-                        </small>
-                        <small class="text-muted d-block mt-1">
-                            Receita potencial (preço sugerido):
-                            <strong>R$ {{ '%.2f'|format(total_receita_estoque or 0) }}</strong>
                         </small>
                     </div>
                     <div class="ms-3 d-flex align-items-center">
@@ -69,8 +70,35 @@
             </div>
         </div>
 
-        <!-- Parâmetros de cálculo -->
+        <!-- Lucro potencial do estoque -->
         <div class="col-12 col-md-12 col-xl-4">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-body d-flex">
+                    <div class="flex-grow-1">
+                        <div class="text-muted text-uppercase small mb-1">
+                            Receita potencial do estoque (lucro líquido esperado)
+                        </div>
+                        <div class="h4 mb-0">
+                            R$ {{ '%.2f'|format(total_lucro_potencial or 0) }}
+                        </div>
+                        <small class="text-muted d-block">
+                            Estimativa de lucro líquido se todo o estoque atual for vendido,
+                            usando a mesma performance histórica de lucro por unidade.
+                        </small>
+                    </div>
+                    <div class="ms-3 d-flex align-items-center">
+                        <div class="rounded-circle bg-warning bg-opacity-10 p-3">
+                            <i class="bi bi-graph-up-arrow text-warning fs-4"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Parâmetros de análise -->
+    <div class="row g-3 mb-4">
+        <div class="col-12 col-lg-6">
             <div class="card shadow-sm border-0 h-100">
                 <div class="card-body d-flex">
                     <div class="flex-grow-1">
@@ -79,16 +107,20 @@
                         </div>
                         <div class="mb-1">
                             <span class="badge bg-light text-dark me-2">
-                                Janela: últimos {{ janela_dias }} dias
+                                Período de média: últimos {{ janela_dias }} dias
                             </span>
                             <span class="badge bg-light text-dark">
                                 Estoque mínimo: {{ dias_minimos }} dias
                             </span>
                         </div>
                         <small class="text-muted d-block">
-                            A média diária de vendas é calculada dentro da janela de {{ janela_dias }} dias.
+                            A média diária é calculada somando todas as vendas dos últimos {{ janela_dias }} dias
+                            e dividindo por {{ janela_dias }}.
                         </small>
-                        <small class="text-muted">
+                        <small class="text-muted d-block">
+                            A venda mensal média é a projeção dessa média diária × 30.
+                        </small>
+                        <small class="text-muted d-block">
                             Produtos com cobertura abaixo de {{ dias_minimos }} dias aparecem como
                             <strong>"Repôr"</strong>.
                         </small>
@@ -101,15 +133,35 @@
                 </div>
             </div>
         </div>
+
+        <!-- Observação sobre lucro potencial -->
+        <div class="col-12 col-lg-6">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-body">
+                    <div class="text-muted text-uppercase small mb-1">
+                        Como o lucro potencial é calculado?
+                    </div>
+                    <small class="text-muted d-block mb-1">
+                        • Para cada produto, o sistema calcula o <strong>lucro líquido histórico</strong>
+                        (receita - custo - comissão ML - imposto - despesas) e divide pela quantidade vendida,
+                        obtendo o <strong>lucro líquido por unidade</strong>.
+                    </small>
+                    <small class="text-muted d-block mb-1">
+                        • Esse lucro por unidade é multiplicado pelo estoque atual, gerando o
+                        <strong>lucro potencial do estoque</strong> para aquele produto.
+                    </small>
+                    <small class="text-muted d-block">
+                        • O card de "Receita potencial do estoque" mostra a soma do lucro potencial de todos os produtos.
+                    </small>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Tabela de estoque -->
     <div class="card shadow-sm border-0">
         <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center">
             <h5 class="mb-0">Detalhamento por produto</h5>
-            <small class="text-muted">
-                Médias calculadas com base nos últimos {{ janela_dias }} dias de vendas.
-            </small>
         </div>
         <div class="table-responsive">
             <table class="table align-middle mb-0">
@@ -120,11 +172,11 @@
                         <th class="text-end">Estoque atual (un)</th>
                         <th class="text-end">Custo unitário (R$)</th>
                         <th class="text-end">Custo em estoque (R$)</th>
-                        <th class="text-end">Preço sugerido (R$)</th>
-                        <th class="text-end">Receita potencial (R$)</th>
                         <th class="text-end">Média diária (un)</th>
                         <th class="text-end">Média mensal (un)</th>
                         <th class="text-end">Cobertura (dias)</th>
+                        <th class="text-end">Lucro potencial (R$)</th>
+                        <th class="text-end">Retorno esperado (%)</th>
                         <th class="text-center">Situação</th>
                     </tr>
                 </thead>
@@ -134,34 +186,43 @@
                             <tr class="{% if p.precisa_repor %}table-warning{% endif %}">
                                 <td>{{ p.nome }}</td>
                                 <td>{{ p.sku or '-' }}</td>
+
                                 <td class="text-end">
-                                    {{ '%.0f'|format(p.estoque_atual or 0) }}
+                                    {{ (p.estoque_atual or 0)|int }}
                                 </td>
+
                                 <td class="text-end">
                                     R$ {{ '%.2f'|format(p.custo_unitario or 0) }}
                                 </td>
+
                                 <td class="text-end">
                                     R$ {{ '%.2f'|format(p.custo_estoque or 0) }}
                                 </td>
+
                                 <td class="text-end">
-                                    R$ {{ '%.2f'|format(p.preco_venda_sugerido or 0) }}
+                                    {{ (p.media_diaria or 0)|round(0, 'floor')|int }}
                                 </td>
+
                                 <td class="text-end">
-                                    R$ {{ '%.2f'|format(p.receita_estoque or 0) }}
+                                    {{ (p.media_mensal or 0)|round(0, 'floor')|int }}
                                 </td>
-                                <td class="text-end">
-                                    {{ '%.0f'|format(p.media_diaria or 0) }}
-                                </td>
-                                <td class="text-end">
-                                    {{ '%.0f'|format(p.media_mensal or 0) }}
-                                </td>
+
                                 <td class="text-end">
                                     {% if p.dias_cobertura is not none %}
-                                        {{ '%.0f'|format(p.dias_cobertura) }}
+                                        {{ (p.dias_cobertura)|round(0, 'floor')|int }}
                                     {% else %}
                                         -
                                     {% endif %}
                                 </td>
+
+                                <td class="text-end">
+                                    R$ {{ '%.2f'|format(p.lucro_potencial or 0) }}
+                                </td>
+
+                                <td class="text-end">
+                                    {{ '%.1f'|format(p.retorno_percent or 0) }}%
+                                </td>
+
                                 <td class="text-center">
                                     {% if p.dias_cobertura is none %}
                                         <span class="badge bg-secondary-subtle text-secondary">
@@ -182,12 +243,74 @@
                     {% else %}
                         <tr>
                             <td colspan="11" class="text-center text-muted py-4">
-                                Ainda não há produtos cadastrados ou movimentações de estoque.
+                                Ainda não há produtos cadastrados ou movimentações de estoque suficientes
+                                para cálculo das métricas.
                             </td>
                         </tr>
                     {% endif %}
                 </tbody>
             </table>
+        </div>
+    </div>
+
+
+    <!-- Modal de ajuste de estoque -->
+    <div class="modal fade" id="ajusteEstoqueModal" tabindex="-1" aria-labelledby="ajusteEstoqueModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <form method="POST" action="{{ url_for('ajuste_estoque') }}">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="ajusteEstoqueModalLabel">Ajustar estoque</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                    </div>
+                    <div class="modal-body">
+
+                        <div class="mb-3">
+                            <label class="form-label">Produto</label>
+                            <select name="produto_id" class="form-select" required>
+                                <option value="" disabled selected>Selecione o produto</option>
+                                {% for p in produtos %}
+                                    <option value="{{ p.id }}">
+                                        {{ p.nome }} {% if p.sku %} - {{ p.sku }}{% endif %}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Tipo de ajuste</label>
+                            <select name="tipo" class="form-select" required>
+                                <option value="entrada">Entrada (compra / reposição)</option>
+                                <option value="saida">Saída (perda, ajuste, etc.)</option>
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Quantidade</label>
+                            <input type="number" name="quantidade" class="form-control" min="1" required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">
+                                Novo custo unitário (opcional)
+                            </label>
+                            <input type="number" step="0.01" name="custo_unitario" class="form-control"
+                                   placeholder="Deixe em branco para manter o custo atual">
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Observação</label>
+                            <textarea name="observacao" class="form-control" rows="2"
+                                      placeholder="Ex.: Compra de novo lote, ajuste de inventário, etc."></textarea>
+                        </div>
+
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-primary">Salvar ajuste</button>
+                    </div>
+                </form>
+            </div>
         </div>
     </div>
 
