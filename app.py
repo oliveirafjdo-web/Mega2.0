@@ -845,12 +845,25 @@ def estoque_view():
 
         # -------- para MÉDIA DIÁRIA (últimos 30 dias) --------
         if data_raw:
-            dt = parse_data_venda(data_raw)
-            if dt is None:
-                try:
-                    dt = datetime.fromisoformat(str(data_raw))
-                except Exception:
-                    dt = None
+        # CONVERSÃO ROBUSTA DA DATA
+dt = None
+
+# 1) Tenta o parser do Mercado Livre (ex: "20 de novembro de 2025 14:33")
+dt = parse_data_venda(data_raw)
+
+# 2) Se não funcionar, tenta ISO 8601 (ex: "2025-11-20T14:33:00")
+if dt is None:
+    try:
+        dt = datetime.fromisoformat(str(data_raw))
+    except:
+        dt = None
+
+# 3) Se ainda falhar, tenta só a parte da data (às vezes vem "2025-11-20")
+if dt is None:
+    try:
+        dt = datetime.strptime(str(data_raw), "%Y-%m-%d")
+    except:
+        dt = None
 
             if dt:
                 dt_date = dt.date()
