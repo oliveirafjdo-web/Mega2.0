@@ -785,26 +785,28 @@ def exportar_template():
 
 # ---------------- ESTOQUE / AJUSTES ----------------
 @app.route("/estoque")
-@login_required
 def estoque_view():
     """
-    Visão de estoque com médias de venda e previsão de cobertura.
-
-    - média_diaria: média de unidades vendidas por dia nos últimos 30 dias
-    - média_mensal: média_diaria * 30
-    - dias_cobertura: estoque_atual / média_diaria
-    - precisa_repor: True se dias_cobertura < dias_minimos
-    - receita_estoque: estoque_atual * preco_venda_sugerido
+    Visão de estoque com médias de venda, cobertura
+    e LUCRO POTENCIAL do estoque (retorno esperado).
     """
 
-    JANELA_DIAS = 30      # quantos dias olhar pra trás nas vendas
+    JANELA_DIAS = 30      # quantos dias olhar pra trás nas vendas (média diária)
     DIAS_MINIMOS = 15     # estoque mínimo desejado em dias
 
     hoje = date.today()
     limite_30dias = hoje - timedelta(days=JANELA_DIAS)
 
     with engine.connect() as conn:
-        # Produtos (AGORA trazendo também o preço sugerido)
+        # Configurações de imposto / despesas (necessárias para lucro líquido)
+        cfg = conn.execute(
+            select(configuracoes).where(configuracoes.c.id == 1)
+        ).mappings().first() or {}
+
+        imposto_percent = float(cfg.get("imposto_percent") or 0)
+        despesas_percent = float(cfg.get("despesas_percent") or 0)
+
+        # Produtos
         produtos_rows = conn.execute(
             select(
                 produtos.c.id,
@@ -812,63 +814,80 @@ def estoque_view():
                 produtos.c.sku,
                 produtos.c.estoque_atual,
                 produtos.c.custo_unitario,
-                produtos.c.preco_venda_sugerido,
             ).order_by(produtos.c.nome)
         ).mappings().all()
 
-        # Vendas (só o necessário)
+        # Vendas (trazendo tudo que precisamos)
         vendas_rows = conn.execute(
             select(
                 vendas.c.produto_id,
                 vendas.c.data_venda,
                 vendas.c.quantidade,
+                vendas.c.receita_total,
+                vendas.c.custo_total,
+                vendas.c.margem_contribuicao,
             )
         ).mappings().all()
 
-    # Soma de vendas por produto dentro da janela (últimos 30 dias)
-    vendas_por_produto = {}
+    # 1) Soma de vendas por produto dentro da janela (últimos 30 dias) -> média diária
+    vendas_30d_por_produto = {}
+
+    # 2) Agregados gerais por produto -> lucro líquido por unidade
+    agregados_por_produto = {}
 
     for v in vendas_rows:
         pid = v["produto_id"]
         qtd = int(v["quantidade"] or 0)
+        receita = float(v["receita_total"] or 0)
+        custo = float(v["custo_total"] or 0)
+        margem_atual = float(v["margem_contribuicao"] or 0)
         data_raw = v["data_venda"]
 
-        if not data_raw:
-            continue
+        # -------- para MÉDIA DIÁRIA (últimos 30 dias) --------
+        if data_raw:
+            dt = parse_data_venda(data_raw)
+            if dt is None:
+                try:
+                    dt = datetime.fromisoformat(str(data_raw))
+                except Exception:
+                    dt = None
 
-        # tenta interpretar a data
-        dt = parse_data_venda(data_raw)
-        if dt is None:
-            try:
-                dt = datetime.fromisoformat(str(data_raw))
-            except Exception:
-                continue
+            if dt:
+                dt_date = dt.date()
+                if limite_30dias <= dt_date <= hoje:
+                    vendas_30d_por_produto[pid] = vendas_30d_por_produto.get(pid, 0) + qtd
 
-        dt_date = dt.date()
-        # só considera vendas dentro da janela
-        if dt_date < limite_30dias or dt_date > hoje:
-            continue
+        # -------- para LUCRO LÍQUIDO POR UNIDADE (histórico) --------
+        agg = agregados_por_produto.get(pid)
+        if not agg:
+            agg = {
+                "qtd": 0.0,
+                "receita": 0.0,
+                "custo": 0.0,
+                "margem_atual": 0.0,
+            }
+            agregados_por_produto[pid] = agg
 
-        vendas_por_produto[pid] = vendas_por_produto.get(pid, 0) + qtd
+        agg["qtd"] += qtd
+        agg["receita"] += receita
+        agg["custo"] += custo
+        agg["margem_atual"] += margem_atual
 
     # Monta lista enriquecida de produtos + totais de estoque
     produtos_enriquecidos = []
     total_unidades_estoque = 0.0
     total_custo_estoque = 0.0
-    total_receita_estoque = 0.0  # NOVO: receita potencial de todo o estoque
+    total_lucro_potencial = 0.0
 
     for p in produtos_rows:
         pid = p["id"]
         estoque_atual = float(p["estoque_atual"] or 0)
-        qtd_periodo = float(vendas_por_produto.get(pid, 0))
         custo_unitario = float(p["custo_unitario"] or 0)
-        preco_sugerido = float(p["preco_venda_sugerido"] or 0)
-
         custo_estoque = estoque_atual * custo_unitario
-        receita_estoque = estoque_atual * preco_sugerido  # NOVO
 
-        # média diária baseada na janela fixa de 30 dias
-        media_diaria = qtd_periodo / JANELA_DIAS if JANELA_DIAS > 0 else 0.0
+        # --- média diária / mensal (baseada nos últimos 30 dias) ---
+        qtd_30d = float(vendas_30d_por_produto.get(pid, 0))
+        media_diaria = qtd_30d / JANELA_DIAS if JANELA_DIAS > 0 else 0.0
         media_mensal = media_diaria * 30.0
 
         if media_diaria > 0:
@@ -880,6 +899,29 @@ def estoque_view():
             dias_cobertura is not None and dias_cobertura < DIAS_MINIMOS
         )
 
+        # --- lucro líquido por unidade (histórico) ---
+        agg = agregados_por_produto.get(pid)
+        lucro_por_unidade = 0.0
+
+        if agg and agg["qtd"] > 0:
+            receita = agg["receita"]
+            custo = agg["custo"]
+            margem_atual = agg["margem_atual"]
+
+            # Comissão ML estimada (mesma lógica do relatório de lucro)
+            comissao_ml = max(0.0, (receita - custo) - margem_atual)
+
+            imposto_val = receita * (imposto_percent / 100.0)
+            despesas_val = receita * (despesas_percent / 100.0)
+
+            lucro_liquido_total = receita - custo - comissao_ml - imposto_val - despesas_val
+
+            lucro_por_unidade = lucro_liquido_total / agg["qtd"]
+
+        # --- lucro potencial do estoque + retorno % ---
+        lucro_potencial = estoque_atual * lucro_por_unidade
+        retorno_percent = (lucro_potencial / custo_estoque * 100.0) if custo_estoque > 0 else 0.0
+
         produtos_enriquecidos.append(
             {
                 "id": pid,
@@ -887,19 +929,19 @@ def estoque_view():
                 "sku": p["sku"],
                 "estoque_atual": estoque_atual,
                 "custo_unitario": custo_unitario,
-                "preco_venda_sugerido": preco_sugerido,
                 "custo_estoque": custo_estoque,
-                "receita_estoque": receita_estoque,  # NOVO
                 "media_diaria": media_diaria,
                 "media_mensal": media_mensal,
                 "dias_cobertura": dias_cobertura,
                 "precisa_repor": precisa_repor,
+                "lucro_potencial": lucro_potencial,
+                "retorno_percent": retorno_percent,
             }
         )
 
         total_unidades_estoque += estoque_atual
         total_custo_estoque += custo_estoque
-        total_receita_estoque += receita_estoque  # NOVO
+        total_lucro_potencial += lucro_potencial
 
     return render_template(
         "estoque.html",
@@ -908,7 +950,7 @@ def estoque_view():
         dias_minimos=DIAS_MINIMOS,
         total_unidades_estoque=total_unidades_estoque,
         total_custo_estoque=total_custo_estoque,
-        total_receita_estoque=total_receita_estoque,  # NOVO
+        total_lucro_potencial=total_lucro_potencial,
     )
 # GET – formulário de ajuste
 @app.route("/estoque/ajuste", methods=["GET"])
