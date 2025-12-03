@@ -785,20 +785,23 @@ def exportar_template():
 
 # ---------------- ESTOQUE / AJUSTES ----------------
 @app.route("/estoque")
+@login_required
 def estoque_view():
     """
-    Visão de estoque com médias de venda, cobertura
-    e LUCRO POTENCIAL do estoque (retorno esperado).
+    Visão de estoque com:
+    - média diária (últimos 30 dias)
+    - média mensal projetada
+    - cobertura (dias)
+    - lucro potencial do estoque baseado no lucro líquido histórico por unidade
     """
 
-    JANELA_DIAS = 30      # quantos dias olhar pra trás nas vendas (média diária)
-    DIAS_MINIMOS = 15     # estoque mínimo desejado em dias
+    JANELA_DIAS = 30
+    DIAS_MINIMOS = 15
 
     hoje = date.today()
     limite_30dias = hoje - timedelta(days=JANELA_DIAS)
 
     with engine.connect() as conn:
-        # Configurações de imposto / despesas (necessárias para lucro líquido)
         cfg = conn.execute(
             select(configuracoes).where(configuracoes.c.id == 1)
         ).mappings().first() or {}
@@ -806,7 +809,6 @@ def estoque_view():
         imposto_percent = float(cfg.get("imposto_percent") or 0)
         despesas_percent = float(cfg.get("despesas_percent") or 0)
 
-        # Produtos
         produtos_rows = conn.execute(
             select(
                 produtos.c.id,
@@ -817,7 +819,6 @@ def estoque_view():
             ).order_by(produtos.c.nome)
         ).mappings().all()
 
-        # Vendas (trazendo tudo que precisamos)
         vendas_rows = conn.execute(
             select(
                 vendas.c.produto_id,
@@ -829,12 +830,12 @@ def estoque_view():
             )
         ).mappings().all()
 
-    # 1) Soma de vendas por produto dentro da janela (últimos 30 dias) -> média diária
     vendas_30d_por_produto = {}
-
-    # 2) Agregados gerais por produto -> lucro líquido por unidade
     agregados_por_produto = {}
 
+    # ----------------------
+    # PROCESSAMENTO DAS VENDAS
+    # ----------------------
     for v in vendas_rows:
         pid = v["produto_id"]
         qtd = int(v["quantidade"] or 0)
@@ -843,52 +844,24 @@ def estoque_view():
         margem_atual = float(v["margem_contribuicao"] or 0)
         data_raw = v["data_venda"]
 
-        # -------- para MÉDIA DIÁRIA (últimos 30 dias) --------
- if data_raw:
-    dt = parse_data_venda(data_raw)
-
-    if dt is None:
-        try:
-            dt = datetime.fromisoformat(str(data_raw))
-        except Exception:
-            dt = None
-
-    if dt:
-        dt_date = dt.date()
-        if limite_30dias <= dt_date <= hoje:
-            vendas_30d_por_produto[pid] = vendas_30d_por_produto.get(pid, 0) + qtd
-
-# 1) Tenta o parser do Mercado Livre (ex: "20 de novembro de 2025 14:33")
-dt = parse_data_venda(data_raw)
-
-# 2) Se não funcionar, tenta ISO 8601 (ex: "2025-11-20T14:33:00")
-if dt is None:
-    try:
-        dt = datetime.fromisoformat(str(data_raw))
-    except:
-        dt = None
-
-# 3) Se ainda falhar, tenta só a parte da data (às vezes vem "2025-11-20")
-if dt is None:
-    try:
-        dt = datetime.strptime(str(data_raw), "%Y-%m-%d")
-    except:
-        dt = None
+        # ---- PARTE 1: Média diária (últimos 30 dias)
+        if data_raw:
+            dt = parse_data_venda(data_raw)
+            if dt is None:
+                try:
+                    dt = datetime.fromisoformat(str(data_raw))
+                except:
+                    dt = None
 
             if dt:
                 dt_date = dt.date()
                 if limite_30dias <= dt_date <= hoje:
                     vendas_30d_por_produto[pid] = vendas_30d_por_produto.get(pid, 0) + qtd
 
-        # -------- para LUCRO LÍQUIDO POR UNIDADE (histórico) --------
+        # ---- PARTE 2: Lucro líquido histórico por unidade
         agg = agregados_por_produto.get(pid)
         if not agg:
-            agg = {
-                "qtd": 0.0,
-                "receita": 0.0,
-                "custo": 0.0,
-                "margem_atual": 0.0,
-            }
+            agg = {"qtd": 0.0, "receita": 0.0, "custo": 0.0, "margem_atual": 0.0}
             agregados_por_produto[pid] = agg
 
         agg["qtd"] += qtd
@@ -896,71 +869,68 @@ if dt is None:
         agg["custo"] += custo
         agg["margem_atual"] += margem_atual
 
-    # Monta lista enriquecida de produtos + totais de estoque
+    # ----------------------
+    # PROCESSA PRODUTOS + CÁLCULOS
+    # ----------------------
     produtos_enriquecidos = []
-    total_unidades_estoque = 0.0
-    total_custo_estoque = 0.0
-    total_lucro_potencial = 0.0
+    total_unidades_estoque = 0
+    total_custo_estoque = 0
+    total_lucro_potencial = 0
 
     for p in produtos_rows:
         pid = p["id"]
         estoque_atual = float(p["estoque_atual"] or 0)
         custo_unitario = float(p["custo_unitario"] or 0)
+
         custo_estoque = estoque_atual * custo_unitario
 
-        # --- média diária / mensal (baseada nos últimos 30 dias) ---
-        qtd_30d = float(vendas_30d_por_produto.get(pid, 0))
-        media_diaria = qtd_30d / JANELA_DIAS if JANELA_DIAS > 0 else 0.0
-        media_mensal = media_diaria * 30.0
+        # --- média diária / mensal
+        qtd_30d = vendas_30d_por_produto.get(pid, 0)
+        media_diaria = qtd_30d / JANELA_DIAS
+        media_mensal = media_diaria * 30
 
-        if media_diaria > 0:
-            dias_cobertura = estoque_atual / media_diaria
-        else:
-            dias_cobertura = None  # sem vendas recentes, não dá pra estimar
-
-        precisa_repor = (
-            dias_cobertura is not None and dias_cobertura < DIAS_MINIMOS
+        dias_cobertura = (
+            estoque_atual / media_diaria if media_diaria > 0 else None
         )
+        precisa_repor = dias_cobertura is not None and dias_cobertura < DIAS_MINIMOS
 
-        # --- lucro líquido por unidade (histórico) ---
+        # --- lucro líquido por unidade histórico
         agg = agregados_por_produto.get(pid)
-        lucro_por_unidade = 0.0
+        lucro_por_unidade = 0
 
         if agg and agg["qtd"] > 0:
             receita = agg["receita"]
             custo = agg["custo"]
             margem_atual = agg["margem_atual"]
 
-            # Comissão ML estimada (mesma lógica do relatório de lucro)
+            # mesma lógica do relatório de lucro
             comissao_ml = max(0.0, (receita - custo) - margem_atual)
 
-            imposto_val = receita * (imposto_percent / 100.0)
-            despesas_val = receita * (despesas_percent / 100.0)
+            imposto_val = receita * (imposto_percent / 100)
+            despesas_val = receita * (despesas_percent / 100)
 
             lucro_liquido_total = receita - custo - comissao_ml - imposto_val - despesas_val
-
             lucro_por_unidade = lucro_liquido_total / agg["qtd"]
 
-        # --- lucro potencial do estoque + retorno % ---
         lucro_potencial = estoque_atual * lucro_por_unidade
-        retorno_percent = (lucro_potencial / custo_estoque * 100.0) if custo_estoque > 0 else 0.0
-
-        produtos_enriquecidos.append(
-            {
-                "id": pid,
-                "nome": p["nome"],
-                "sku": p["sku"],
-                "estoque_atual": estoque_atual,
-                "custo_unitario": custo_unitario,
-                "custo_estoque": custo_estoque,
-                "media_diaria": media_diaria,
-                "media_mensal": media_mensal,
-                "dias_cobertura": dias_cobertura,
-                "precisa_repor": precisa_repor,
-                "lucro_potencial": lucro_potencial,
-                "retorno_percent": retorno_percent,
-            }
+        retorno_percent = (
+            (lucro_potencial / custo_estoque) * 100 if custo_estoque > 0 else 0
         )
+
+        produtos_enriquecidos.append({
+            "id": pid,
+            "nome": p["nome"],
+            "sku": p["sku"],
+            "estoque_atual": estoque_atual,
+            "custo_unitario": custo_unitario,
+            "custo_estoque": custo_estoque,
+            "media_diaria": media_diaria,
+            "media_mensal": media_mensal,
+            "dias_cobertura": dias_cobertura,
+            "precisa_repor": precisa_repor,
+            "lucro_potencial": lucro_potencial,
+            "retorno_percent": retorno_percent,
+        })
 
         total_unidades_estoque += estoque_atual
         total_custo_estoque += custo_estoque
