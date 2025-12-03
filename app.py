@@ -844,9 +844,19 @@ def estoque_view():
         data_raw = v["data_venda"]
 
         # -------- para MÉDIA DIÁRIA (últimos 30 dias) --------
-        if data_raw:
-        # CONVERSÃO ROBUSTA DA DATA
-dt = None
+ if data_raw:
+    dt = parse_data_venda(data_raw)
+
+    if dt is None:
+        try:
+            dt = datetime.fromisoformat(str(data_raw))
+        except Exception:
+            dt = None
+
+    if dt:
+        dt_date = dt.date()
+        if limite_30dias <= dt_date <= hoje:
+            vendas_30d_por_produto[pid] = vendas_30d_por_produto.get(pid, 0) + qtd
 
 # 1) Tenta o parser do Mercado Livre (ex: "20 de novembro de 2025 14:33")
 dt = parse_data_venda(data_raw)
