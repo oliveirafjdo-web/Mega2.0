@@ -498,11 +498,10 @@ def lista_vendas():
             )
 
         query_vendas = query_vendas.order_by(vendas.c.data_venda.asc())
-
         vendas_rows = conn.execute(query_vendas).mappings().all()
 
         # ======================================================
-        # 2. CONSULTA DE LOTES
+        # 2. CONSULTA DE LOTES (para tabela de importações)
         # ======================================================
         query_lotes = (
             select(
@@ -525,7 +524,7 @@ def lista_vendas():
         lotes = conn.execute(query_lotes).mappings().all()
 
     # ======================================================
-    # 3. GERAÇÃO DOS GRÁFICOS
+    # 3. GERAÇÃO DOS GRÁFICOS (por dia)
     # ======================================================
 
     faturamento_dia = {}
@@ -538,7 +537,7 @@ def lista_vendas():
 
         try:
             dt = datetime.fromisoformat(v["data_venda"]).date()
-        except:
+        except Exception:
             continue
 
         receita = float(v["receita_total"] or 0)
@@ -546,19 +545,18 @@ def lista_vendas():
         margem = float(v["margem_contribuicao"] or 0)
         qtd = float(v["quantidade"] or 0)
 
-        # LUCRO = margem de contribuição já calculada no import
+        # LUCRO = usando a margem de contribuição já calculada no import
         lucro = float(margem)
 
-        # FATURAMENTO
+        # FATURAMENTO diário
         faturamento_dia[dt] = faturamento_dia.get(dt, 0) + receita
 
-        # QUANTIDADE
+        # QUANTIDADE diária
         quantidade_dia[dt] = quantidade_dia.get(dt, 0) + qtd
 
-        # LUCRO
+        # LUCRO diário
         lucro_dia[dt] = lucro_dia.get(dt, 0) + lucro
 
-    # Ordenação cronológica
     datas_ordenadas = sorted(faturamento_dia.keys())
 
     grafico_labels = [d.isoformat() for d in datas_ordenadas]
@@ -570,7 +568,6 @@ def lista_vendas():
     # 4. COMPARATIVO MÊS ATUAL VS MÊS ANTERIOR
     # ======================================================
     hoje = date.today()
-
     inicio_mes_atual = hoje.replace(day=1)
 
     if inicio_mes_atual.month == 1:
@@ -603,6 +600,7 @@ def lista_vendas():
     grafico_cmp_labels = [d.isoformat() for d in datas_atual]
     grafico_cmp_atual = [faturamento_mes_atual[d] for d in datas_atual]
 
+    # alinhar dias do mês anterior pelos dias do mês atual
     grafico_cmp_anterior = [
         faturamento_mes_anterior.get(
             inicio_mes_anterior.replace(day=d.day), 0
@@ -611,7 +609,7 @@ def lista_vendas():
     ]
 
     # ======================================================
-    # 5. TOTAIS GERAIS
+    # 5. TOTAIS GERAIS (para os cards de topo)
     # ======================================================
     totais = {
         "qtd": sum(v["quantidade"] for v in vendas_rows),
@@ -638,6 +636,19 @@ def lista_vendas():
         grafico_cmp_anterior=grafico_cmp_anterior,
     )
 
+
+@app.route("/excluir_lote/<lote>", methods=["POST"])
+def excluir_lote(lote):
+    """
+    Exclui todas as vendas de um determinado lote_importacao
+    e volta para a tela de vendas.
+    """
+    with engine.begin() as conn:
+        conn.execute(
+            vendas.delete().where(vendas.c.lote_importacao == lote)
+        )
+
+    return redirect(url_for("lista_vendas"))
 @app.route("/vendas/manual", methods=["POST"])
 def criar_venda_manual():
     produto_id = int(request.form["produto_id"])
