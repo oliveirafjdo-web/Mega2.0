@@ -454,79 +454,59 @@ def excluir_produto(produto_id):
 
 
 # ---------------- VENDAS ----------------
-from flask import render_template, request, redirect, url_for
-from datetime import datetime, date
-from sqlalchemy import select, func
-from app import app, engine
-from models import vendas, produtos
-
-
 @app.route("/vendas")
 def lista_vendas():
-
     data_inicio = request.args.get("data_inicio") or ""
     data_fim = request.args.get("data_fim") or ""
 
     with engine.connect() as conn:
-
-        # ======================================================
-        # 1. CONSULTA PRINCIPAL DE VENDAS
-        # ======================================================
-        query_vendas = (
-            select(
-                vendas.c.id,
-                vendas.c.data_venda,
-                vendas.c.quantidade,
-                vendas.c.preco_venda_unitario,
-                vendas.c.receita_total,
-                vendas.c.custo_total,
-                vendas.c.margem_contribuicao,
-                vendas.c.origem,
-                vendas.c.numero_venda_ml,
-                vendas.c.lote_importacao,
-                produtos.c.nome,
-            )
-            .select_from(vendas.join(produtos))
-        )
+        # Query base das vendas
+        query_vendas = select(
+            vendas.c.id,
+            vendas.c.data_venda,
+            vendas.c.quantidade,
+            vendas.c.preco_venda_unitario,
+            vendas.c.receita_total,
+            vendas.c.custo_total,
+            vendas.c.margem_contribuicao,
+            vendas.c.origem,
+            vendas.c.numero_venda_ml,
+            vendas.c.lote_importacao,
+            produtos.c.nome,
+        ).select_from(vendas.join(produtos))
 
         if data_inicio:
             query_vendas = query_vendas.where(vendas.c.data_venda >= data_inicio)
 
         if data_fim:
-            query_vendas = query_vendas.where(
-                vendas.c.data_venda <= data_fim + "T23:59:59"
-            )
+            query_vendas = query_vendas.where(vendas.c.data_venda <= data_fim + "T23:59:59")
 
         query_vendas = query_vendas.order_by(vendas.c.data_venda.asc())
         vendas_rows = conn.execute(query_vendas).mappings().all()
 
-        # ======================================================
-        # 2. CONSULTA DE LOTES (para tabela de importações)
-        # ======================================================
-        query_lotes = (
-            select(
-                vendas.c.lote_importacao.label("lote_importacao"),
-                func.count().label("qtd_vendas"),
-                func.coalesce(func.sum(vendas.c.receita_total), 0).label("receita_lote"),
-            )
-            .where(vendas.c.lote_importacao.isnot(None))
-        )
+        # Lotes
+        query_lotes = select(
+            vendas.c.lote_importacao.label("lote_importacao"),
+            func.count().label("qtd_vendas"),
+            func.coalesce(func.sum(vendas.c.receita_total), 0).label("receita_lote"),
+        ).where(vendas.c.lote_importacao.isnot(None))
 
         if data_inicio:
             query_lotes = query_lotes.where(vendas.c.data_venda >= data_inicio)
 
         if data_fim:
-            query_lotes = query_lotes.where(
-                vendas.c.data_venda <= data_fim + "T23:59:59"
-            )
+            query_lotes = query_lotes.where(vendas.c.data_venda <= data_fim + "T23:59:59")
 
         query_lotes = query_lotes.group_by(vendas.c.lote_importacao)
         lotes = conn.execute(query_lotes).mappings().all()
 
-    # ======================================================
-    # 3. GERAÇÃO DOS GRÁFICOS (por dia)
-    # ======================================================
+        produtos_rows = conn.execute(
+            select(produtos.c.id, produtos.c.nome).order_by(produtos.c.nome)
+        ).mappings().all()
 
+    # =======================
+    # CALCULOS PARA GRÁFICOS
+    # =======================
     faturamento_dia = {}
     quantidade_dia = {}
     lucro_dia = {}
@@ -537,7 +517,7 @@ def lista_vendas():
 
         try:
             dt = datetime.fromisoformat(v["data_venda"]).date()
-        except Exception:
+        except:
             continue
 
         receita = float(v["receita_total"] or 0)
@@ -545,39 +525,32 @@ def lista_vendas():
         margem = float(v["margem_contribuicao"] or 0)
         qtd = float(v["quantidade"] or 0)
 
-        # LUCRO = usando a margem de contribuição já calculada no import
-        lucro = float(margem)
+        lucro = receita - custo - max(0.0, (receita - custo) - margem)
 
-        # FATURAMENTO diário
+        # faturamento diário
         faturamento_dia[dt] = faturamento_dia.get(dt, 0) + receita
 
-        # QUANTIDADE diária
+        # quantidade por dia
         quantidade_dia[dt] = quantidade_dia.get(dt, 0) + qtd
 
-        # LUCRO diário
+        # lucro diário
         lucro_dia[dt] = lucro_dia.get(dt, 0) + lucro
 
-    datas_ordenadas = sorted(faturamento_dia.keys())
+    grafico_labels = [d.isoformat() for d in sorted(faturamento_dia.keys())]
+    grafico_faturamento = [faturamento_dia[d] for d in sorted(faturamento_dia.keys())]
+    grafico_quantidade = [quantidade_dia.get(d, 0) for d in sorted(faturamento_dia.keys())]
+    grafico_lucro = [lucro_dia.get(d, 0) for d in sorted(faturamento_dia.keys())]
 
-    grafico_labels = [d.isoformat() for d in datas_ordenadas]
-    grafico_faturamento = [faturamento_dia[d] for d in datas_ordenadas]
-    grafico_quantidade = [quantidade_dia.get(d, 0) for d in datas_ordenadas]
-    grafico_lucro = [lucro_dia.get(d, 0) for d in datas_ordenadas]
+    # =========================
+    # MÊS ATUAL vs MÊS ANTERIOR
+    # =========================
 
-    # ======================================================
-    # 4. COMPARATIVO MÊS ATUAL VS MÊS ANTERIOR
-    # ======================================================
     hoje = date.today()
     inicio_mes_atual = hoje.replace(day=1)
-
     if inicio_mes_atual.month == 1:
-        inicio_mes_anterior = inicio_mes_atual.replace(
-            year=inicio_mes_atual.year - 1, month=12
-        )
+        inicio_mes_anterior = inicio_mes_atual.replace(year=inicio_mes_atual.year - 1, month=12)
     else:
-        inicio_mes_anterior = inicio_mes_atual.replace(
-            month=inicio_mes_atual.month - 1
-        )
+        inicio_mes_anterior = inicio_mes_atual.replace(month=inicio_mes_atual.month - 1)
 
     faturamento_mes_atual = {}
     faturamento_mes_anterior = {}
@@ -587,43 +560,31 @@ def lista_vendas():
             continue
 
         dt = datetime.fromisoformat(v["data_venda"]).date()
-        receita = float(v["receita_total"] or 0)
 
         if dt >= inicio_mes_atual:
-            faturamento_mes_atual[dt] = faturamento_mes_atual.get(dt, 0) + receita
+            faturamento_mes_atual[dt] = faturamento_mes_atual.get(dt, 0) + float(v["receita_total"] or 0)
 
-        if inicio_mes_anterior <= dt < inicio_mes_atual:
-            faturamento_mes_anterior[dt] = faturamento_mes_anterior.get(dt, 0) + receita
+        if dt >= inicio_mes_anterior and dt < inicio_mes_atual:
+            faturamento_mes_anterior[dt] = faturamento_mes_anterior.get(dt, 0) + float(v["receita_total"] or 0)
 
-    datas_atual = sorted(faturamento_mes_atual.keys())
+    grafico_cmp_labels = [d.isoformat() for d in sorted(faturamento_mes_atual.keys())]
+    grafico_cmp_atual = [faturamento_mes_atual[d] for d in sorted(faturamento_mes_atual.keys())]
+    grafico_cmp_anterior = [faturamento_mes_anterior.get(
+        (inicio_mes_atual.replace(day=1) + (d - inicio_mes_atual.replace(day=1))), 0
+    ) for d in sorted(faturamento_mes_atual.keys())]
 
-    grafico_cmp_labels = [d.isoformat() for d in datas_atual]
-    grafico_cmp_atual = [faturamento_mes_atual[d] for d in datas_atual]
-
-    # alinhar dias do mês anterior pelos dias do mês atual
-    grafico_cmp_anterior = [
-        faturamento_mes_anterior.get(
-            inicio_mes_anterior.replace(day=d.day), 0
-        )
-        for d in datas_atual
-    ]
-
-    # ======================================================
-    # 5. TOTAIS GERAIS (para os cards de topo)
-    # ======================================================
+    # TOTAIS
     totais = {
-        "qtd": sum(v["quantidade"] for v in vendas_rows),
-        "receita": sum(v["receita_total"] for v in vendas_rows),
-        "custo": sum(v["custo_total"] for v in vendas_rows),
+        "qtd": sum(q["quantidade"] for q in vendas_rows),
+        "receita": sum(q["receita_total"] for q in vendas_rows),
+        "custo": sum(q["custo_total"] for q in vendas_rows),
     }
 
-    # ======================================================
-    # 6. RENDERIZA TEMPLATE FINAL
-    # ======================================================
     return render_template(
         "vendas.html",
         vendas=vendas_rows,
         lotes=lotes,
+        produtos=produtos_rows,
         data_inicio=data_inicio,
         data_fim=data_fim,
         totais=totais,
@@ -636,19 +597,6 @@ def lista_vendas():
         grafico_cmp_anterior=grafico_cmp_anterior,
     )
 
-
-@app.route("/excluir_lote/<lote>", methods=["POST"])
-def excluir_lote(lote):
-    """
-    Exclui todas as vendas de um determinado lote_importacao
-    e volta para a tela de vendas.
-    """
-    with engine.begin() as conn:
-        conn.execute(
-            vendas.delete().where(vendas.c.lote_importacao == lote)
-        )
-
-    return redirect(url_for("lista_vendas"))
 @app.route("/vendas/manual", methods=["POST"])
 def criar_venda_manual():
     produto_id = int(request.form["produto_id"])
@@ -838,25 +786,16 @@ def exportar_template():
 # ---------------- ESTOQUE / AJUSTES ----------------
 @app.route("/estoque")
 def estoque_view():
-    """
-    Visão de estoque com médias de venda, cobertura
-    e LUCRO POTENCIAL do estoque (retorno esperado).
-    """
+    """Visão de estoque com médias reais dos últimos 30 dias."""
 
-    JANELA_DIAS = 30      # últimos 30 dias
-    DIAS_MINIMOS = 15     # cobertura mínima desejada
+    JANELA_DIAS = 30     # FIXO: últimos 30 dias sempre
+    DIAS_MINIMOS = 15    # estoque mínimo desejado em dias
 
-    hoje = date.today()
+    hoje = datetime.now()
     limite_30dias = hoje - timedelta(days=JANELA_DIAS)
 
     with engine.connect() as conn:
-        cfg = conn.execute(
-            select(configuracoes).where(configuracoes.c.id == 1)
-        ).mappings().first() or {}
-
-        imposto_percent = float(cfg.get("imposto_percent") or 0)
-        despesas_percent = float(cfg.get("despesas_percent") or 0)
-
+        # Produtos
         produtos_rows = conn.execute(
             select(
                 produtos.c.id,
@@ -867,120 +806,89 @@ def estoque_view():
             ).order_by(produtos.c.nome)
         ).mappings().all()
 
+        # Vendas (todas, vamos filtrar via Python)
         vendas_rows = conn.execute(
             select(
                 vendas.c.produto_id,
                 vendas.c.data_venda,
                 vendas.c.quantidade,
-                vendas.c.receita_total,
-                vendas.c.custo_total,
-                vendas.c.margem_contribuicao,
             )
         ).mappings().all()
 
-    vendas_30d_por_produto = {}
-    agregados_por_produto = {}
+    # Soma das vendas por produto dentro da janela (últimos 30 dias)
+    vendas_por_produto = {}
 
     for v in vendas_rows:
         pid = v["produto_id"]
         qtd = int(v["quantidade"] or 0)
-        receita = float(v["receita_total"] or 0)
-        custo = float(v["custo_total"] or 0)
-        margem_atual = float(v["margem_contribuicao"] or 0)
         data_raw = v["data_venda"]
 
-        # Últimos 30 dias para cálculo da média
-        if data_raw:
+        if not data_raw:
+            continue
+
+        # tenta converter para datetime
+        dt = None
+        try:
+            dt = parse_data_venda(data_raw)
+        except:
             try:
-                dt = parse_data_venda(data_raw)
-                if dt is None:
-                    dt = datetime.fromisoformat(str(data_raw))
-            except Exception:
-                dt = None
+                dt = datetime.fromisoformat(str(data_raw))
+            except:
+                continue
 
-            if dt:
-                dt_date = dt.date()
-                if limite_30dias <= dt_date <= hoje:
-                    vendas_30d_por_produto[pid] = vendas_30d_por_produto.get(pid, 0) + qtd
+        if dt is None:
+            continue
 
-        # Agrega dados históricos para lucro líquido
-        agg = agregados_por_produto.get(pid)
-        if not agg:
-            agg = {"qtd": 0, "receita": 0, "custo": 0, "margem_atual": 0}
-            agregados_por_produto[pid] = agg
+        # só considera vendas dentro dos últimos 30 dias
+        if dt < limite_30dias or dt > hoje:
+            continue
 
-        agg["qtd"] += qtd
-        agg["receita"] += receita
-        agg["custo"] += custo
-        agg["margem_atual"] += margem_atual
+        vendas_por_produto[pid] = vendas_por_produto.get(pid, 0) + qtd
 
+    # Construção da tabela
     produtos_enriquecidos = []
     total_unidades_estoque = 0
     total_custo_estoque = 0
-    total_lucro_potencial = 0
 
     for p in produtos_rows:
         pid = p["id"]
         estoque_atual = float(p["estoque_atual"] or 0)
+        qtd_30dias = float(vendas_por_produto.get(pid, 0))
         custo_unitario = float(p["custo_unitario"] or 0)
         custo_estoque = estoque_atual * custo_unitario
 
-        # Média dos últimos 30 dias
-        qtd_30d = vendas_30d_por_produto.get(pid, 0)
-        media_diaria = qtd_30d / JANELA_DIAS if JANELA_DIAS else 0
-        media_mensal = media_diaria * 30
+        # Média diária usando sempre 30 dias
+        media_diaria = qtd_30dias / 30.0
+        media_mensal = media_diaria * 30.0
 
-        dias_cobertura = (estoque_atual / media_diaria) if media_diaria > 0 else None
+        # Cobertura
+        dias_cobertura = estoque_atual / media_diaria if media_diaria > 0 else None
+
         precisa_repor = dias_cobertura is not None and dias_cobertura < DIAS_MINIMOS
 
-        # Lucro líquido histórico por unidade
-        agg = agregados_por_produto.get(pid)
-        lucro_por_unidade = 0
-
-        if agg and agg["qtd"] > 0:
-            receita = agg["receita"]
-            custo = agg["custo"]
-            margem_atual = agg["margem_atual"]
-
-            comissao_ml = max(0, (receita - custo) - margem_atual)
-            imposto_val = receita * (imposto_percent / 100)
-            despesas_val = receita * (despesas_percent / 100)
-
-            lucro_total = receita - custo - comissao_ml - imposto_val - despesas_val
-            lucro_por_unidade = lucro_total / agg["qtd"]
-
-        lucro_potencial = estoque_atual * lucro_por_unidade
-        retorno_percent = (lucro_potencial / custo_estoque * 100) if custo_estoque > 0 else 0
-
-        produtos_enriquecidos.append(
-            {
-                "id": pid,
-                "nome": p["nome"],
-                "sku": p["sku"],
-                "estoque_atual": estoque_atual,
-                "custo_unitario": custo_unitario,
-                "custo_estoque": custo_estoque,
-                "media_diaria": media_diaria,
-                "media_mensal": media_mensal,
-                "dias_cobertura": dias_cobertura,
-                "precisa_repor": precisa_repor,
-                "lucro_potencial": lucro_potencial,
-                "retorno_percent": retorno_percent,
-            }
-        )
+        produtos_enriquecidos.append({
+            "id": pid,
+            "nome": p["nome"],
+            "sku": p["sku"],
+            "estoque_atual": estoque_atual,
+            "custo_unitario": custo_unitario,
+            "custo_estoque": custo_estoque,
+            "media_diaria": media_diaria,
+            "media_mensal": media_mensal,
+            "dias_cobertura": dias_cobertura,
+            "precisa_repor": precisa_repor,
+        })
 
         total_unidades_estoque += estoque_atual
         total_custo_estoque += custo_estoque
-        total_lucro_potencial += lucro_potencial
 
     return render_template(
         "estoque.html",
         produtos=produtos_enriquecidos,
-        janela_dias=JANELA_DIAS,
+        janela_dias=30,
         dias_minimos=DIAS_MINIMOS,
         total_unidades_estoque=total_unidades_estoque,
         total_custo_estoque=total_custo_estoque,
-        total_lucro_potencial=total_lucro_potencial,
     )
 
 # GET – formulário de ajuste
