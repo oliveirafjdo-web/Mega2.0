@@ -5,180 +5,266 @@
 {% block content %}
 <div class="container-fluid py-4">
 
-    <!-- Cabeçalho + filtros -->
-    <div class="d-flex justify-content-between align-items-center mb-3">
-        <div>
-            <h1 class="h3 mb-1">Lista de vendas</h1>
-            <p class="text-muted mb-0">
-                Visualize as vendas importadas e manuais, filtre por período e gerencie lotes.
-            </p>
-        </div>
-
-        <form class="row g-2 align-items-end" method="get" action="{{ url_for('lista_vendas') }}">
-            <div class="col-auto">
-                <label class="form-label mb-1">Início</label>
-                <input type="date" name="data_inicio" class="form-control form-control-sm"
-                       value="{{ data_inicio }}">
-            </div>
-            <div class="col-auto">
-                <label class="form-label mb-1">Fim</label>
-                <input type="date" name="data_fim" class="form-control form-control-sm"
-                       value="{{ data_fim }}">
-            </div>
-            <div class="col-auto">
-                <button type="submit" class="btn btn-primary btn-sm">
-                    Aplicar filtro
-                </button>
-            </div>
-        </form>
+  <!-- Cabeçalho + filtros -->
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+      <h1 class="h4 mb-1">Lista de vendas</h1>
+      <p class="text-muted mb-0">
+        Veja todas as vendas, filtre por período e acompanhe gráficos de faturamento e lucro.
+      </p>
     </div>
+    <form class="d-flex align-items-end" method="get" action="{{ url_for('lista_vendas') }}">
+      <div class="me-2">
+        <label class="form-label mb-1 small">De</label>
+        <input type="date" name="data_inicio" class="form-control form-control-sm"
+               value="{{ data_inicio }}">
+      </div>
+      <div class="me-2">
+        <label class="form-label mb-1 small">Até</label>
+        <input type="date" name="data_fim" class="form-control form-control-sm"
+               value="{{ data_fim }}">
+      </div>
+      <div class="me-2">
+        <button type="submit" class="btn btn-primary btn-sm mt-3">
+          Aplicar
+        </button>
+      </div>
+      <div>
+        <a href="{{ url_for('lista_vendas') }}" class="btn btn-outline-secondary btn-sm mt-3">
+          Limpar
+        </a>
+      </div>
+    </form>
+  </div>
 
-    <!-- Totais do período -->
-    <div class="row g-3 mb-4">
-        <div class="col-12 col-md-3">
-            <div class="card shadow-sm border-0 h-100">
-                <div class="card-body">
-                    <div class="text-muted small text-uppercase mb-1">Quantidade total</div>
-                    <div class="h4 mb-0">{{ '%.0f'|format(totais.qtd or 0) }}</div>
-                </div>
-            </div>
+  <!-- Resumo rápido -->
+  <div class="row g-3 mb-4">
+    <div class="col-12 col-md-3">
+      <div class="card shadow-sm border-0 h-100">
+        <div class="card-body">
+          <div class="text-muted text-uppercase small mb-1">Qtd. total</div>
+          <div class="h4 mb-0">{{ '%.0f'|format(totais.qtd or 0) }}</div>
         </div>
-        <div class="col-12 col-md-3">
-            <div class="card shadow-sm border-0 h-100">
-                <div class="card-body">
-                    <div class="text-muted small text-uppercase mb-1">Receita total</div>
-                    <div class="h4 mb-0">R$ {{ '%.2f'|format(totais.receita or 0) }}</div>
-                </div>
-            </div>
-        </div>
-        <div class="col-12 col-md-3">
-            <div class="card shadow-sm border-0 h-100">
-                <div class="card-body">
-                    <div class="text-muted small text-uppercase mb-1">Custo total</div>
-                    <div class="h4 mb-0">R$ {{ '%.2f'|format(totais.custo or 0) }}</div>
-                </div>
-            </div>
-        </div>
-        <div class="col-12 col-md-3">
-            <div class="card shadow-sm border-0 h-100">
-                <div class="card-body">
-                    <div class="text-muted small text-uppercase mb-1">Margem contribuição</div>
-                    <div class="h4 mb-0">R$ {{ '%.2f'|format(totais.margem or 0) }}</div>
-                </div>
-            </div>
-        </div>
+      </div>
     </div>
-
-    <div class="row g-3">
-        <!-- Tabela de vendas -->
-        <div class="col-12 col-lg-8">
-            <div class="card shadow-sm border-0 h-100">
-                <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0">Vendas</h5>
-                    <a href="{{ url_for('exportar_consolidado') }}" class="btn btn-outline-secondary btn-sm">
-                        Exportar consolidado
-                    </a>
-                </div>
-                <div class="table-responsive">
-                    <table class="table align-middle mb-0">
-                        <thead class="table-light">
-                            <tr>
-                                <th>Data</th>
-                                <th>Produto</th>
-                                <th class="text-end">Qtd</th>
-                                <th class="text-end">Preço unit. (R$)</th>
-                                <th class="text-end">Receita (R$)</th>
-                                <th class="text-end">Custo (R$)</th>
-                                <th class="text-end">Margem (R$)</th>
-                                <th>Origem</th>
-                                <th>Lote</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% if vendas %}
-                                {% for v in vendas %}
-                                    <tr>
-                                        <td>
-                                            {% if v.data_venda %}
-                                                {{ v.data_venda[:10] }}
-                                            {% else %}
-                                                -
-                                            {% endif %}
-                                        </td>
-                                        <td>{{ v.nome }}</td>
-                                        <td class="text-end">{{ v.quantidade }}</td>
-                                        <td class="text-end">R$ {{ '%.2f'|format(v.preco_venda_unitario or 0) }}</td>
-                                        <td class="text-end">R$ {{ '%.2f'|format(v.receita_total or 0) }}</td>
-                                        <td class="text-end">R$ {{ '%.2f'|format(v.custo_total or 0) }}</td>
-                                        <td class="text-end">R$ {{ '%.2f'|format(v.margem_contribuicao or 0) }}</td>
-                                        <td>{{ v.origem or '-' }}</td>
-                                        <td>{{ v.lote_importacao or '-' }}</td>
-                                    </tr>
-                                {% endfor %}
-                            {% else %}
-                                <tr>
-                                    <td colspan="9" class="text-center text-muted py-4">
-                                        Nenhuma venda encontrada no período selecionado.
-                                    </td>
-                                </tr>
-                            {% endif %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+    <div class="col-12 col-md-3">
+      <div class="card shadow-sm border-0 h-100">
+        <div class="card-body">
+          <div class="text-muted text-uppercase small mb-1">Receita total</div>
+          <div class="h4 mb-0">R$ {{ '%.2f'|format(totais.receita or 0) }}</div>
         </div>
-
-        <!-- Lotes importados -->
-        <div class="col-12 col-lg-4">
-            <div class="card shadow-sm border-0 h-100">
-                <div class="card-header bg-transparent border-0">
-                    <h5 class="mb-0">Lotes importados</h5>
-                    <small class="text-muted">
-                        Aqui você pode excluir um lote inteiro de vendas importadas.
-                    </small>
-                </div>
-                <div class="table-responsive">
-                    <table class="table align-middle mb-0">
-                        <thead class="table-light">
-                            <tr>
-                                <th>Lote</th>
-                                <th class="text-end">Vendas</th>
-                                <th class="text-end">Receita (R$)</th>
-                                <th class="text-center">Ações</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% if lotes %}
-                                {% for lote in lotes %}
-                                    <tr>
-                                        <td>{{ lote.lote_importacao }}</td>
-                                        <td class="text-end">{{ lote.qtd_vendas }}</td>
-                                        <td class="text-end">R$ {{ '%.2f'|format(lote.receita_lote or 0) }}</td>
-                                        <td class="text-center">
-                                            <form method="post"
-                                                  action="{{ url_for('excluir_lote_vendas', lote_id=lote.lote_importacao) }}"
-                                                  onsubmit="return confirm('Tem certeza que deseja excluir todas as vendas deste lote?');">
-                                                <button type="submit" class="btn btn-sm btn-outline-danger">
-                                                    Excluir lote
-                                                </button>
-                                            </form>
-                                        </td>
-                                    </tr>
-                                {% endfor %}
-                            {% else %}
-                                <tr>
-                                    <td colspan="4" class="text-center text-muted py-3">
-                                        Nenhum lote encontrado no período filtrado.
-                                    </td>
-                                </tr>
-                            {% endif %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-
+      </div>
     </div>
+    <div class="col-12 col-md-3">
+      <div class="card shadow-sm border-0 h-100">
+        <div class="card-body">
+          <div class="text-muted text-uppercase small mb-1">Custo total</div>
+          <div class="h4 mb-0">R$ {{ '%.2f'|format(totais.custo or 0) }}</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-12 col-md-3">
+      <div class="card shadow-sm border-0 h-100">
+        <div class="card-body">
+          <div class="text-muted text-uppercase small mb-1">Lucro (margem contribuição)</div>
+          <div class="h4 mb-0">R$ {{ '%.2f'|format(totais.margem or 0) }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Gráficos -->
+  <div class="row g-3 mb-4">
+    <div class="col-12 col-xl-6">
+      <div class="card shadow-sm border-0 h-100">
+        <div class="card-body">
+          <h5 class="card-title mb-3">Faturamento diário</h5>
+          <canvas id="chartReceita"></canvas>
+        </div>
+      </div>
+    </div>
+    <div class="col-12 col-xl-6">
+      <div class="card shadow-sm border-0 h-100">
+        <div class="card-body">
+          <h5 class="card-title mb-3">Lucro diário estimado</h5>
+          <canvas id="chartLucro"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tabela de vendas -->
+  <div class="card shadow-sm border-0 mb-4">
+    <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center">
+      <h5 class="mb-0">Vendas</h5>
+      <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalVendaManual">
+        + Registrar venda manual
+      </button>
+    </div>
+    <div class="table-responsive">
+      <table class="table align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>Data</th>
+            <th>Produto</th>
+            <th class="text-end">Qtd</th>
+            <th class="text-end">Preço un. (R$)</th>
+            <th class="text-end">Receita (R$)</th>
+            <th class="text-end">Custo (R$)</th>
+            <th class="text-end">Margem contrib. (R$)</th>
+            <th>Origem</th>
+            <th>Lote</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% if vendas %}
+            {% for v in vendas %}
+              <tr>
+                <td>
+                  {% if v.data_venda %}
+                    {{ v.data_venda[:10] }}
+                  {% else %}
+                    -
+                  {% endif %}
+                </td>
+                <td>{{ v.nome }}</td>
+                <td class="text-end">{{ v.quantidade }}</td>
+                <td class="text-end">R$ {{ '%.2f'|format(v.preco_venda_unitario or 0) }}</td>
+                <td class="text-end">R$ {{ '%.2f'|format(v.receita_total or 0) }}</td>
+                <td class="text-end">R$ {{ '%.2f'|format(v.custo_total or 0) }}</td>
+                <td class="text-end">R$ {{ '%.2f'|format(v.margem_contribuicao or 0) }}</td>
+                <td>{{ v.origem or '-' }}</td>
+                <td>{{ v.lote_importacao or '-' }}</td>
+              </tr>
+            {% endfor %}
+          {% else %}
+            <tr>
+              <td colspan="9" class="text-center text-muted py-4">
+                Nenhuma venda encontrada para o período selecionado.
+              </td>
+            </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Lotes importados (com botão de excluir) -->
+  <div class="card shadow-sm border-0 mb-4">
+    <div class="card-header bg-transparent border-0">
+      <h5 class="mb-0">Lotes de importação</h5>
+    </div>
+    <div class="table-responsive">
+      <table class="table align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>Lote</th>
+            <th class="text-end">Qtd. vendas</th>
+            <th class="text-end">Receita do lote (R$)</th>
+            <th class="text-center">Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% if lotes %}
+            {% for l in lotes %}
+              <tr>
+                <td>{{ l.lote_importacao }}</td>
+                <td class="text-end">{{ l.qtd_vendas }}</td>
+                <td class="text-end">R$ {{ '%.2f'|format(l.receita_lote or 0) }}</td>
+                <td class="text-center">
+                  <form method="post"
+                        action="{{ url_for('excluir_lote_vendas', lote_id=l.lote_importacao) }}"
+                        onsubmit="return confirm('Tem certeza que deseja excluir todas as vendas deste lote?');">
+                    <button type="submit" class="btn btn-sm btn-outline-danger">
+                      Excluir lote
+                    </button>
+                  </form>
+                </td>
+              </tr>
+            {% endfor %}
+          {% else %}
+            <tr>
+              <td colspan="4" class="text-center text-muted py-4">
+                Nenhum lote de importação encontrado para o período.
+              </td>
+            </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
 
 </div>
+
+<!-- Modal venda manual -->
+<div class="modal fade" id="modalVendaManual" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <form class="modal-content" method="post" action="{{ url_for('criar_venda_manual') }}">
+      <div class="modal-header">
+        <h5 class="modal-title">Registrar venda manual</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label">Produto</label>
+          <select name="produto_id" class="form-select" required>
+            {% for p in produtos %}
+              <option value="{{ p.id }}">{{ p.nome }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Quantidade</label>
+          <input type="number" name="quantidade" min="1" value="1" class="form-control" required>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Preço unitário (R$)</label>
+          <input type="number" step="0.01" name="preco_venda_unitario" class="form-control" required>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Data da venda</label>
+          <input type="datetime-local" name="data_venda" class="form-control">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal" type="button">Cancelar</button>
+        <button class="btn btn-primary" type="submit">Salvar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 {% endblock %}
+
+{% block extra_scripts %}
+  {{ super() }}
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script>
+    const chartLabels = {{ chart_labels|tojson|safe }};
+    const chartReceitas = {{ chart_receitas|tojson|safe }};
+    const chartLucros = {{ chart_lucros|tojson|safe }};
+
+    function buildLineChart(ctxId, labels, data, label) {
+      const ctx = document.getElementById(ctxId);
+      if (!ctx) return;
+
+      new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: label,
+            data: data,
+            tension: 0.3,
+            fill: true,
+            pointRadius: 4,
+            pointHoverRadius: 5
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: {
+              display: true
+            },
+            tooltip
