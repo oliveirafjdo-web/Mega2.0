@@ -1,357 +1,183 @@
 {% extends "base.html" %}
 
-{% block title %}Vendas - Metrify{% endblock %}
-
 {% block content %}
-<div class="container-fluid py-4">
+<div class="container mt-4">
 
-    <!-- Cabeçalho + filtros -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <div>
-            <h1 class="h3 mb-1">Vendas</h1>
-            <p class="text-muted mb-0">
-                Acompanhe as vendas, lotes importados, faturamento e lucro no período selecionado.
-            </p>
-        </div>
-        <div>
-            <a href="{{ url_for('exportar_consolidado') }}" class="btn btn-outline-secondary btn-sm me-2">
-                <i class="bi bi-file-earmark-excel"></i> Exportar consolidado
-            </a>
-            <a href="{{ url_for('importar_ml_view') }}" class="btn btn-primary btn-sm">
-                <i class="bi bi-upload"></i> Importar planilha ML
-            </a>
+    <!-- =========================== -->
+    <!-- RECEITA / FATURAMENTO DIÁRIO -->
+    <!-- =========================== -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <h3 class="card-title">Faturamento diário</h3>
+            <canvas id="chartFaturamento"></canvas>
         </div>
     </div>
 
-    <!-- Filtros de período -->
-    <form method="get" class="card shadow-sm border-0 mb-4">
-        <div class="card-body row g-3 align-items-end">
-            <div class="col-12 col-md-4 col-lg-3">
-                <label class="form-label">Data início</label>
-                <input type="date" name="data_inicio" class="form-control"
-                       value="{{ data_inicio or '' }}">
-            </div>
-            <div class="col-12 col-md-4 col-lg-3">
-                <label class="form-label">Data fim</label>
-                <input type="date" name="data_fim" class="form-control"
-                       value="{{ data_fim or '' }}">
-            </div>
-            <div class="col-12 col-md-4 col-lg-3">
-                <button type="submit" class="btn btn-primary w-100">
-                    <i class="bi bi-funnel"></i> Aplicar filtro
-                </button>
-            </div>
-            <div class="col-12 col-md-4 col-lg-3">
-                <a href="{{ url_for('lista_vendas') }}" class="btn btn-outline-secondary w-100">
-                    Limpar filtro
-                </a>
-            </div>
-        </div>
-    </form>
-
-    <!-- Cards de totais -->
-    <div class="row g-3 mb-4">
-        <div class="col-12 col-md-6 col-xl-3">
-            <div class="card shadow-sm border-0 h-100">
-                <div class="card-body d-flex">
-                    <div class="flex-grow-1">
-                        <div class="text-muted text-uppercase small mb-1">
-                            Faturamento bruto
-                        </div>
-                        <div class="h4 mb-0">
-                            R$ {{ '%.2f'|format(totais.receita or 0) }}
-                        </div>
-                        <small class="text-muted">Somatório de todas as receitas no período.</small>
-                    </div>
-                    <div class="ms-3 d-flex align-items-center">
-                        <div class="rounded-circle bg-primary bg-opacity-10 p-3">
-                            <i class="bi bi-cash-coin text-primary fs-4"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-12 col-md-6 col-xl-3">
-            <div class="card shadow-sm border-0 h-100">
-                <div class="card-body d-flex">
-                    <div class="flex-grow-1">
-                        <div class="text-muted text-uppercase small mb-1">
-                            Custo dos produtos
-                        </div>
-                        <div class="h4 mb-0">
-                            R$ {{ '%.2f'|format(totais.custo or 0) }}
-                        </div>
-                        <small class="text-muted">Custo total dos itens vendidos.</small>
-                    </div>
-                    <div class="ms-3 d-flex align-items-center">
-                        <div class="rounded-circle bg-warning bg-opacity-10 p-3">
-                            <i class="bi bi-box-seam text-warning fs-4"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-12 col-md-6 col-xl-3">
-            <div class="card shadow-sm border-0 h-100">
-                <div class="card-body d-flex">
-                    <div class="flex-grow-1">
-                        <div class="text-muted text-uppercase small mb-1">
-                            Comissão ML (estimada)
-                        </div>
-                        <div class="h4 mb-0">
-                            R$ {{ '%.2f'|format(totais.comissao or 0) }}
-                        </div>
-                        <small class="text-muted">Estimativa com base na margem informada.</small>
-                    </div>
-                    <div class="ms-3 d-flex align-items-center">
-                        <div class="rounded-circle bg-danger bg-opacity-10 p-3">
-                            <i class="bi bi-percent text-danger fs-4"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        {% set lucro_liquido_total = (totais.receita or 0) - (totais.custo or 0) - (totais.comissao or 0) %}
-        <div class="col-12 col-md-6 col-xl-3">
-            <div class="card shadow-sm border-0 h-100">
-                <div class="card-body d-flex">
-                    <div class="flex-grow-1">
-                        <div class="text-muted text-uppercase small mb-1">
-                            Lucro (bruto - custo - comissão)
-                        </div>
-                        <div class="h4 mb-0">
-                            R$ {{ '%.2f'|format(lucro_liquido_total) }}
-                        </div>
-                        <small class="text-muted">
-                            Receita - Custo - Comissão estimada.
-                        </small>
-                    </div>
-                    <div class="ms-3 d-flex align-items-center">
-                        <div class="rounded-circle bg-success bg-opacity-10 p-3">
-                            <i class="bi bi-graph-up-arrow text-success fs-4"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Gráficos -->
-    <div class="row g-3 mb-4">
-        <div class="col-12 col-lg-6">
-            <div class="card shadow-sm border-0 h-100">
-                <div class="card-header bg-transparent border-0">
-                    <h6 class="mb-0">Faturamento diário</h6>
-                </div>
+    <div class="row">
+        <!-- =========================== -->
+        <!-- QUANTIDADE POR DIA -->
+        <!-- =========================== -->
+        <div class="col-md-6">
+            <div class="card mb-4">
                 <div class="card-body">
-                    <canvas id="chartFaturamento" style="max-height: 260px;"></canvas>
+                    <h3 class="card-title">Quantidade vendida por dia</h3>
+                    <canvas id="chartQuantidade"></canvas>
                 </div>
             </div>
         </div>
 
-        <div class="col-12 col-lg-6">
-            <div class="card shadow-sm border-0 h-100">
-                <div class="card-header bg-transparent border-0">
-                    <h6 class="mb-0">Lucro estimado diário</h6>
-                </div>
+        <!-- =========================== -->
+        <!-- LUCRO DIÁRIO -->
+        <!-- =========================== -->
+        <div class="col-md-6">
+            <div class="card mb-4">
                 <div class="card-body">
-                    <canvas id="chartLucros" style="max-height: 260px;"></canvas>
+                    <h3 class="card-title">Lucro diário</h3>
+                    <canvas id="chartLucro"></canvas>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Lotes importados -->
-    <div class="card shadow-sm border-0 mb-4">
-        <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center">
-            <h5 class="mb-0">Lotes de importação</h5>
-        </div>
-        <div class="table-responsive">
-            <table class="table align-middle mb-0">
-                <thead class="table-light">
-                    <tr>
-                        <th>Lote</th>
-                        <th class="text-end">Qtd. vendas</th>
-                        <th class="text-end">Receita do lote (R$)</th>
-                        <th class="text-end">Ações</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% if lotes %}
-                        {% for lote in lotes %}
-                            <tr>
-                                <td>{{ lote.lote_importacao }}</td>
-                                <td class="text-end">
-                                    {{ lote.qtd_vendas }}
-                                </td>
-                                <td class="text-end">
-                                    R$ {{ '%.2f'|format(lote.receita_lote or 0) }}
-                                </td>
-                                <td class="text-end">
-                                    <form method="post"
-                                          action="{{ url_for('excluir_lote_vendas', lote_id=lote.lote_importacao) }}"
-                                          onsubmit="return confirm('Confirma excluir todas as vendas deste lote?');">
-                                        <button type="submit" class="btn btn-sm btn-outline-danger">
-                                            <i class="bi bi-trash"></i> Excluir lote
-                                        </button>
-                                    </form>
-                                </td>
-                            </tr>
-                        {% endfor %}
-                    {% else %}
-                        <tr>
-                            <td colspan="4" class="text-center text-muted py-3">
-                                Nenhum lote de importação encontrado no período.
-                            </td>
-                        </tr>
-                    {% endif %}
-                </tbody>
-            </table>
-        </div>
-    </div>
-
-    <!-- Tabela de vendas -->
-    <div class="card shadow-sm border-0">
-        <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center">
-            <h5 class="mb-0">Detalhamento das vendas</h5>
-        </div>
-        <div class="table-responsive">
-            <table class="table align-middle mb-0">
-                <thead class="table-light">
-                    <tr>
-                        <th>Data</th>
-                        <th>Produto</th>
-                        <th class="text-end">Qtd</th>
-                        <th class="text-end">Preço unit. (R$)</th>
-                        <th class="text-end">Receita (R$)</th>
-                        <th class="text-end">Custo (R$)</th>
-                        <th class="text-end">Margem contrib. (R$)</th>
-                        <th>Origem</th>
-                        <th>Nº Venda ML</th>
-                        <th>Lote</th>
-                        <th class="text-end">Ações</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% if vendas %}
-                        {% for v in vendas %}
-                            <tr>
-                                <td>
-                                    {% if v.data_venda %}
-                                        {{ v.data_venda[:10] }}
-                                    {% else %}
-                                        -
-                                    {% endif %}
-                                </td>
-                                <td>{{ v.nome }}</td>
-                                <td class="text-end">{{ v.quantidade }}</td>
-                                <td class="text-end">R$ {{ '%.2f'|format(v.preco_venda_unitario or 0) }}</td>
-                                <td class="text-end">R$ {{ '%.2f'|format(v.receita_total or 0) }}</td>
-                                <td class="text-end">R$ {{ '%.2f'|format(v.custo_total or 0) }}</td>
-                                <td class="text-end">R$ {{ '%.2f'|format(v.margem_contribuicao or 0) }}</td>
-                                <td>{{ v.origem or '-' }}</td>
-                                <td>{{ v.numero_venda_ml or '-' }}</td>
-                                <td>{{ v.lote_importacao or '-' }}</td>
-                                <td class="text-end">
-                                    <a href="{{ url_for('editar_venda', venda_id=v.id) }}"
-                                       class="btn btn-sm btn-outline-secondary">
-                                        <i class="bi bi-pencil"></i>
-                                    </a>
-                                    <form method="post" action="{{ url_for('excluir_venda', venda_id=v.id) }}"
-                                          class="d-inline"
-                                          onsubmit="return confirm('Confirma excluir esta venda?');">
-                                        <button type="submit" class="btn btn-sm btn-outline-danger">
-                                            <i class="bi bi-trash"></i>
-                                        </button>
-                                    </form>
-                                </td>
-                            </tr>
-                        {% endfor %}
-                    {% else %}
-                        <tr>
-                            <td colspan="11" class="text-center text-muted py-4">
-                                Nenhuma venda encontrada no período selecionado.
-                            </td>
-                        </tr>
-                    {% endif %}
-                </tbody>
-                <tfoot>
-                    <tr class="fw-semibold">
-                        <td colspan="2" class="text-end">Totais:</td>
-                        <td class="text-end">{{ '%.0f'|format(totais.qtd or 0) }}</td>
-                        <td></td>
-                        <td class="text-end">R$ {{ '%.2f'|format(totais.receita or 0) }}</td>
-                        <td class="text-end">R$ {{ '%.2f'|format(totais.custo or 0) }}</td>
-                        <td class="text-end">R$ {{ '%.2f'|format(totais.margem or 0) }}</td>
-                        <td colspan="4"></td>
-                    </tr>
-                </tfoot>
-            </table>
+    <!-- =========================== -->
+    <!-- COMPARATIVO MÊS ATUAL x ANTERIOR -->
+    <!-- =========================== -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <h3 class="card-title">Comparativo: Mês atual x Mês anterior</h3>
+            <canvas id="chartComparativo"></canvas>
         </div>
     </div>
 
 </div>
 
-<!-- Scripts de gráfico -->
+<!-- =========================== -->
+<!-- SCRIPTS DOS GRÁFICOS (Chart.js) -->
+<!-- =========================== -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
 <script>
-    // Dados vindos do backend (se não vierem, usa arrays vazios para não quebrar)
-    const chartFaturamento = {{ chart_faturamento|default({'labels': [], 'values': []})|tojson|safe }};
-    const chartLucros = {{ chart_lucros|default({'labels': [], 'values': []})|tojson|safe }};
+    // Dados vindos do Flask
+    const labels = {{ grafico_labels|tojson }};
+    const dadosFaturamento = {{ grafico_faturamento|tojson }};
+    const dadosQuantidade = {{ grafico_quantidade|tojson }};
+    const dadosLucro = {{ grafico_lucro|tojson }};
+    
+    const labelsCmp = {{ grafico_cmp_labels|tojson }};
+    const dadosAtual = {{ grafico_cmp_atual|tojson }};
+    const dadosAnterior = {{ grafico_cmp_anterior|tojson }};
 
-    const ctxFat = document.getElementById('chartFaturamento');
-    if (ctxFat && chartFaturamento.labels && chartFaturamento.values) {
-        new Chart(ctxFat, {
-            type: 'line',
-            data: {
-                labels: chartFaturamento.labels,
-                datasets: [{
-                    label: 'Faturamento (R$)',
-                    data: chartFaturamento.values,
-                    tension: 0.3,
-                    fill: false,
-                }]
-            },
-            options: {
-                plugins: {
-                    legend: { display: false },
-                    tooltip: { enabled: true },
-                },
-                scales: {
-                    x: { display: true },
-                    y: { display: true }
-                }
+    // ========================================
+    // GRÁFICO 1 — FATURAMENTO DIÁRIO (Linha + Área)
+    // ========================================
+    new Chart(document.getElementById('chartFaturamento'), {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: "Faturamento (R$)",
+                data: dadosFaturamento,
+                borderColor: "#3498db",
+                backgroundColor: "rgba(52,152,219,0.3)",
+                fill: true,
+                tension: 0.3,
+                pointRadius: 4
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                x: { ticks: { maxRotation: 45, minRotation: 45 }},
+                y: { beginAtZero: true }
             }
-        });
-    }
+        }
+    });
 
-    const ctxLucro = document.getElementById('chartLucros');
-    if (ctxLucro && chartLucros.labels && chartLucros.values) {
-        new Chart(ctxLucro, {
-            type: 'line',
-            data: {
-                labels: chartLucros.labels,
-                datasets: [{
-                    label: 'Lucro estimado (R$)',
-                    data: chartLucros.values,
-                    tension: 0.3,
-                    fill: false,
-                }]
-            },
-            options: {
-                plugins: {
-                    legend: { display: false },
-                    tooltip: { enabled: true },
-                },
-                scales: {
-                    x: { display: true },
-                    y: { display: true }
-                }
+    // ========================================
+    // GRÁFICO 2 — QUANTIDADE POR DIA (Barras Azuis)
+    // ========================================
+    new Chart(document.getElementById('chartQuantidade'), {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: "Quantidade vendida",
+                data: dadosQuantidade,
+                backgroundColor: "#1E90FF",
+                borderColor: "#1E90FF",
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                x: { ticks: { maxRotation: 45, minRotation: 45 }},
+                y: { beginAtZero: true }
             }
-        });
-    }
+        }
+    });
+
+    // ========================================
+    // GRÁFICO 3 — LUCRO DIÁRIO (Linha Verde + Área)
+    // ========================================
+    new Chart(document.getElementById('chartLucro'), {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: "Lucro (R$)",
+                data: dadosLucro,
+                borderColor: "#2ecc71",
+                backgroundColor: "rgba(46,204,113,0.3)",
+                fill: true,
+                tension: 0.3,
+                pointRadius: 4
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                x: { ticks: { maxRotation: 45, minRotation: 45 }},
+                y: { beginAtZero: true }
+            }
+        }
+    });
+
+    // ========================================
+    // GRÁFICO 4 — COMPARATIVO MÊS ATUAL X ANTERIOR
+    // ========================================
+    new Chart(document.getElementById('chartComparativo'), {
+        type: "line",
+        data: {
+            labels: labelsCmp,
+            datasets: [
+                {
+                    label: "Mês atual",
+                    data: dadosAtual,
+                    borderColor: "rgba(52,152,219,0.8)",
+                    backgroundColor: "rgba(52,152,219,0.2)",
+                    fill: true,
+                    tension: 0.3,
+                    pointRadius: 3
+                },
+                {
+                    label: "Mês anterior",
+                    data: dadosAnterior,
+                    borderColor: "rgba(155,89,182,0.8)",
+                    backgroundColor: "rgba(155,89,182,0.2)",
+                    fill: true,
+                    tension: 0.3,
+                    pointRadius: 3
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                x: { ticks: { maxRotation: 45, minRotation: 45 }},
+                y: { beginAtZero: true }
+            }
+        }
+    });
 </script>
 {% endblock %}
