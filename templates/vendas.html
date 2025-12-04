@@ -4,68 +4,109 @@
 <div class="container mt-4">
 
     <!-- =========================== -->
-    <!-- RECEITA / FATURAMENTO DIÁRIO -->
+    <!-- TOTAIS NO TOPO -->
     <!-- =========================== -->
-    <div class="card mb-4">
-        <div class="card-body">
-            <h3 class="card-title">Faturamento diário</h3>
-            <canvas id="chartFaturamento"></canvas>
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card text-center p-3">
+                <h5>Total de Vendas</h5>
+                <h3>{{ totais.qtd }}</h3>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card text-center p-3">
+                <h5>Faturamento Total</h5>
+                <h3>R$ {{ "%.2f"|format(totais.receita or 0) }}</h3>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card text-center p-3">
+                <h5>Custo Total</h5>
+                <h3>R$ {{ "%.2f"|format(totais.custo or 0) }}</h3>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card text-center p-3">
+                <h5>Lucro Total</h5>
+                <h3>
+                    R$ {{ "%.2f"|format((totais.receita or 0) - (totais.custo or 0)) }}
+                </h3>
+            </div>
         </div>
     </div>
 
+    <!-- =========================== -->
+    <!-- LINHA 1: FATURAMENTO x QUANTIDADE -->
+    <!-- =========================== -->
     <div class="row">
-        <!-- =========================== -->
-        <!-- QUANTIDADE POR DIA -->
-        <!-- =========================== -->
+        <!-- Faturamento diário -->
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h3 class="card-title">Faturamento diário</h3>
+                    <canvas id="chartFaturamento" height="200"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quantidade vendida por dia -->
         <div class="col-md-6">
             <div class="card mb-4">
                 <div class="card-body">
                     <h3 class="card-title">Quantidade vendida por dia</h3>
-                    <canvas id="chartQuantidade"></canvas>
-                </div>
-            </div>
-        </div>
-
-        <!-- =========================== -->
-        <!-- LUCRO DIÁRIO -->
-        <!-- =========================== -->
-        <div class="col-md-6">
-            <div class="card mb-4">
-                <div class="card-body">
-                    <h3 class="card-title">Lucro diário</h3>
-                    <canvas id="chartLucro"></canvas>
+                    <canvas id="chartQuantidade" height="200"></canvas>
                 </div>
             </div>
         </div>
     </div>
 
     <!-- =========================== -->
-    <!-- COMPARATIVO MÊS ATUAL x ANTERIOR -->
+    <!-- LINHA 2: LUCRO x COMPARATIVO -->
     <!-- =========================== -->
-    <div class="card mb-4">
-        <div class="card-body">
-            <h3 class="card-title">Comparativo: Mês atual x Mês anterior</h3>
-            <canvas id="chartComparativo"></canvas>
+    <div class="row">
+        <!-- Lucro diário -->
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h3 class="card-title">Lucro diário</h3>
+                    <canvas id="chartLucro" height="200"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Comparativo: mês atual x mês anterior -->
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h3 class="card-title">Comparativo: Mês atual x Mês anterior</h3>
+                    <canvas id="chartComparativo" height="200"></canvas>
+                </div>
+            </div>
         </div>
     </div>
 
 </div>
 
 <!-- =========================== -->
-<!-- SCRIPTS DOS GRÁFICOS (Chart.js) -->
+<!-- SCRIPTS DOS GRÁFICOS -->
 <!-- =========================== -->
+
+<!-- Se o Chart.js já estiver no base.html, pode remover esta linha -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <script>
     // Dados vindos do Flask
-    const labels = {{ grafico_labels|tojson }};
-    const dadosFaturamento = {{ grafico_faturamento|tojson }};
-    const dadosQuantidade = {{ grafico_quantidade|tojson }};
-    const dadosLucro = {{ grafico_lucro|tojson }};
-    
-    const labelsCmp = {{ grafico_cmp_labels|tojson }};
-    const dadosAtual = {{ grafico_cmp_atual|tojson }};
-    const dadosAnterior = {{ grafico_cmp_anterior|tojson }};
+    const labels = {{ grafico_labels|tojson|safe }};
+    const dadosFaturamento = {{ grafico_faturamento|tojson|safe }};
+    const dadosQuantidade = {{ grafico_quantidade|tojson|safe }};
+    const dadosLucro = {{ grafico_lucro|tojson|safe }};
+
+    const labelsCmp = {{ grafico_cmp_labels|tojson|safe }};
+    const dadosAtual = {{ grafico_cmp_atual|tojson|safe }};
+    const dadosAnterior = {{ grafico_cmp_anterior|tojson|safe }};
 
     // ========================================
     // GRÁFICO 1 — FATURAMENTO DIÁRIO (Linha + Área)
