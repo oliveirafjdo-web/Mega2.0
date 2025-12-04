@@ -1,289 +1,184 @@
 {% extends "base.html" %}
+
 {% block title %}Vendas - Metrify{% endblock %}
 
 {% block content %}
 <div class="container-fluid py-4">
 
-    <h1 class="h3 mb-4">Vendas</h1>
-
-    <!-- FILTROS -->
-    <form class="row g-3 mb-4" method="GET">
-        <div class="col-md-3">
-            <label class="form-label">Data início</label>
-            <input type="date" name="data_inicio" class="form-control" value="{{ data_inicio }}">
+    <!-- Cabeçalho + filtros -->
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h1 class="h3 mb-1">Lista de vendas</h1>
+            <p class="text-muted mb-0">
+                Visualize as vendas importadas e manuais, filtre por período e gerencie lotes.
+            </p>
         </div>
-        <div class="col-md-3">
-            <label class="form-label">Data fim</label>
-            <input type="date" name="data_fim" class="form-control" value="{{ data_fim }}">
-        </div>
-        <div class="col-md-3 d-flex align-items-end">
-            <button class="btn btn-primary w-100">Filtrar</button>
-        </div>
-    </form>
 
-    <!-- GRÁFICOS -->
-    <div class="row g-4">
-
-        <!-- FATURAMENTO DIÁRIO -->
-        <div class="col-12">
-            <div class="card shadow-sm">
-                <div class="card-header"><strong>Faturamento diário</strong></div>
-                <div class="card-body">
-                    <canvas id="grafFaturamento" style="height:260px;"></canvas>
-                </div>
+        <form class="row g-2 align-items-end" method="get" action="{{ url_for('lista_vendas') }}">
+            <div class="col-auto">
+                <label class="form-label mb-1">Início</label>
+                <input type="date" name="data_inicio" class="form-control form-control-sm"
+                       value="{{ data_inicio }}">
             </div>
-        </div>
-
-        <!-- QUANTIDADE DIÁRIA -->
-        <div class="col-xl-6 col-12">
-            <div class="card shadow-sm">
-                <div class="card-header"><strong>Quantidade vendida por dia</strong></div>
-                <div class="card-body">
-                    <canvas id="grafQuantidade" style="height:260px;"></canvas>
-                </div>
+            <div class="col-auto">
+                <label class="form-label mb-1">Fim</label>
+                <input type="date" name="data_fim" class="form-control form-control-sm"
+                       value="{{ data_fim }}">
             </div>
-        </div>
-
-        <!-- LUCRO DIÁRIO -->
-        <div class="col-xl-6 col-12">
-            <div class="card shadow-sm">
-                <div class="card-header"><strong>Lucro diário</strong></div>
-                <div class="card-body">
-                    <canvas id="grafLucro" style="height:260px;"></canvas>
-                </div>
+            <div class="col-auto">
+                <button type="submit" class="btn btn-primary btn-sm">
+                    Aplicar filtro
+                </button>
             </div>
-        </div>
-
-        <!-- COMPARAÇÃO MÊS ATUAL X ANTERIOR -->
-        <div class="col-12">
-            <div class="card shadow-sm">
-                <div class="card-header"><strong>Comparativo: Mês atual x Mês anterior</strong></div>
-                <div class="card-body">
-                    <canvas id="grafComparativo" style="height:260px;"></canvas>
-                </div>
-            </div>
-        </div>
-
+        </form>
     </div>
 
-    <!-- TABELA DE VENDAS -->
-    <div class="card shadow-sm border-0 mt-4">
-        <div class="card-header bg-transparent">
-            <h5 class="mb-0">Lista de vendas</h5>
+    <!-- Totais do período -->
+    <div class="row g-3 mb-4">
+        <div class="col-12 col-md-3">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-body">
+                    <div class="text-muted small text-uppercase mb-1">Quantidade total</div>
+                    <div class="h4 mb-0">{{ '%.0f'|format(totais.qtd or 0) }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-md-3">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-body">
+                    <div class="text-muted small text-uppercase mb-1">Receita total</div>
+                    <div class="h4 mb-0">R$ {{ '%.2f'|format(totais.receita or 0) }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-md-3">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-body">
+                    <div class="text-muted small text-uppercase mb-1">Custo total</div>
+                    <div class="h4 mb-0">R$ {{ '%.2f'|format(totais.custo or 0) }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-md-3">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-body">
+                    <div class="text-muted small text-uppercase mb-1">Margem contribuição</div>
+                    <div class="h4 mb-0">R$ {{ '%.2f'|format(totais.margem or 0) }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3">
+        <!-- Tabela de vendas -->
+        <div class="col-12 col-lg-8">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Vendas</h5>
+                    <a href="{{ url_for('exportar_consolidado') }}" class="btn btn-outline-secondary btn-sm">
+                        Exportar consolidado
+                    </a>
+                </div>
+                <div class="table-responsive">
+                    <table class="table align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Data</th>
+                                <th>Produto</th>
+                                <th class="text-end">Qtd</th>
+                                <th class="text-end">Preço unit. (R$)</th>
+                                <th class="text-end">Receita (R$)</th>
+                                <th class="text-end">Custo (R$)</th>
+                                <th class="text-end">Margem (R$)</th>
+                                <th>Origem</th>
+                                <th>Lote</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% if vendas %}
+                                {% for v in vendas %}
+                                    <tr>
+                                        <td>
+                                            {% if v.data_venda %}
+                                                {{ v.data_venda[:10] }}
+                                            {% else %}
+                                                -
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ v.nome }}</td>
+                                        <td class="text-end">{{ v.quantidade }}</td>
+                                        <td class="text-end">R$ {{ '%.2f'|format(v.preco_venda_unitario or 0) }}</td>
+                                        <td class="text-end">R$ {{ '%.2f'|format(v.receita_total or 0) }}</td>
+                                        <td class="text-end">R$ {{ '%.2f'|format(v.custo_total or 0) }}</td>
+                                        <td class="text-end">R$ {{ '%.2f'|format(v.margem_contribuicao or 0) }}</td>
+                                        <td>{{ v.origem or '-' }}</td>
+                                        <td>{{ v.lote_importacao or '-' }}</td>
+                                    </tr>
+                                {% endfor %}
+                            {% else %}
+                                <tr>
+                                    <td colspan="9" class="text-center text-muted py-4">
+                                        Nenhuma venda encontrada no período selecionado.
+                                    </td>
+                                </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
 
-        <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0">
-                <thead class="table-light">
-                    <tr>
-                        <th>Data</th>
-                        <th>Produto</th>
-                        <th class="text-end">Qtd</th>
-                        <th class="text-end">Preço</th>
-                        <th class="text-end">Receita</th>
-                        <th class="text-end">Custo</th>
-                        <th class="text-end">Margem</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for v in vendas %}
-                    <tr>
-                        <td>{{ v.data_venda }}</td>
-                        <td>{{ v.nome }}</td>
-                        <td class="text-end">{{ v.quantidade }}</td>
-                        <td class="text-end">R$ {{ '%.2f'|format(v.preco_venda_unitario or 0) }}</td>
-                        <td class="text-end">R$ {{ '%.2f'|format(v.receita_total or 0) }}</td>
-                        <td class="text-end">R$ {{ '%.2f'|format(v.custo_total or 0) }}</td>
-                        <td class="text-end">R$ {{ '%.2f'|format(v.margem_contribuicao or 0) }}</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+        <!-- Lotes importados -->
+        <div class="col-12 col-lg-4">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-header bg-transparent border-0">
+                    <h5 class="mb-0">Lotes importados</h5>
+                    <small class="text-muted">
+                        Aqui você pode excluir um lote inteiro de vendas importadas.
+                    </small>
+                </div>
+                <div class="table-responsive">
+                    <table class="table align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Lote</th>
+                                <th class="text-end">Vendas</th>
+                                <th class="text-end">Receita (R$)</th>
+                                <th class="text-center">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% if lotes %}
+                                {% for lote in lotes %}
+                                    <tr>
+                                        <td>{{ lote.lote_importacao }}</td>
+                                        <td class="text-end">{{ lote.qtd_vendas }}</td>
+                                        <td class="text-end">R$ {{ '%.2f'|format(lote.receita_lote or 0) }}</td>
+                                        <td class="text-center">
+                                            <form method="post"
+                                                  action="{{ url_for('excluir_lote_vendas', lote_id=lote.lote_importacao) }}"
+                                                  onsubmit="return confirm('Tem certeza que deseja excluir todas as vendas deste lote?');">
+                                                <button type="submit" class="btn btn-sm btn-outline-danger">
+                                                    Excluir lote
+                                                </button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            {% else %}
+                                <tr>
+                                    <td colspan="4" class="text-center text-muted py-3">
+                                        Nenhum lote encontrado no período filtrado.
+                                    </td>
+                                </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
 
     </div>
 
 </div>
-
-<!-- Chart.js e plugin de datalabels -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
-
-<script>
-    // Dados vindos do Flask
-    const labels          = {{ grafico_labels|tojson }};
-    const faturamento     = {{ grafico_faturamento|tojson }};
-    const quantidade      = {{ grafico_quantidade|tojson }};
-    const lucro           = {{ grafico_lucro|tojson }};
-    const cmp_labels      = {{ grafico_cmp_labels|tojson }};
-    const cmp_atual       = {{ grafico_cmp_atual|tojson }};
-    const cmp_anterior    = {{ grafico_cmp_anterior|tojson }};
-
-    // Registra o plugin globalmente
-    Chart.register(ChartDataLabels);
-
-    // Funções de formatação
-    const fmtMoeda = (valor) => {
-        return 'R$ ' + Number(valor || 0).toLocaleString('pt-BR', {
-            minimumFractionDigits: 0,
-            maximumFractionDigits: 0
-        });
-    };
-
-    const fmtNumero = (valor) => {
-        return Number(valor || 0).toLocaleString('pt-BR', {
-            maximumFractionDigits: 0
-        });
-    };
-
-    // Opções padrão para gráficos de linha com datalabels
-    const linhaMoedaOpts = {
-        responsive: true,
-        maintainAspectRatio: false,
-        scales: {
-            y: { beginAtZero: true }
-        },
-        plugins: {
-            legend: { display: true },
-            datalabels: {
-                anchor: 'end',
-                align: 'top',
-                formatter: (val) => fmtMoeda(val),
-                font: { size: 10 },
-                offset: 4
-            },
-            tooltip: {
-                callbacks: {
-                    label: ctx => fmtMoeda(ctx.parsed.y)
-                }
-            }
-        }
-    };
-
-    const linhaNumeroOpts = {
-        responsive: true,
-        maintainAspectRatio: false,
-        scales: {
-            y: { beginAtZero: true }
-        },
-        plugins: {
-            legend: { display: true },
-            datalabels: {
-                anchor: 'end',
-                align: 'top',
-                formatter: (val) => fmtNumero(val),
-                font: { size: 10 },
-                offset: 4
-            },
-            tooltip: {
-                callbacks: {
-                    label: ctx => fmtNumero(ctx.parsed.y)
-                }
-            }
-        }
-    };
-
-    // FATURAMENTO
-    new Chart(document.getElementById('grafFaturamento').getContext('2d'), {
-        type: 'line',
-        data: {
-            labels: labels,
-            datasets: [{
-                label: "Faturamento (R$)",
-                data: faturamento,
-                borderWidth: 2,
-                borderColor: '#0d6efd',
-                backgroundColor: 'rgba(13,110,253,0.2)',
-                fill: true,
-                tension: 0.3,
-                pointRadius: 3
-            }]
-        },
-        options: linhaMoedaOpts
-    });
-
-    // QUANTIDADE
-    new Chart(document.getElementById('grafQuantidade').getContext('2d'), {
-        type: 'bar',
-        data: {
-            labels: labels,
-            datasets: [{
-                label: "Quantidade vendida",
-                data: quantidade,
-                backgroundColor: '#0d6efd'
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-                y: { beginAtZero: true }
-            },
-            plugins: {
-                legend: { display: true },
-                datalabels: {
-                    anchor: 'end',
-                    align: 'top',
-                    formatter: (val) => fmtNumero(val),
-                    font: { size: 10 },
-                    offset: 4
-                },
-                tooltip: {
-                    callbacks: {
-                        label: ctx => fmtNumero(ctx.parsed.y)
-                    }
-                }
-            }
-        }
-    });
-
-    // LUCRO
-    new Chart(document.getElementById('grafLucro').getContext('2d'), {
-        type: 'line',
-        data: {
-            labels: labels,
-            datasets: [{
-                label: "Lucro (R$)",
-                data: lucro,
-                borderWidth: 2,
-                borderColor: '#28a745',
-                backgroundColor: 'rgba(40,167,69,0.2)',
-                fill: true,
-                tension: 0.3,
-                pointRadius: 3
-            }]
-        },
-        options: linhaMoedaOpts
-    });
-
-    // COMPARATIVO MÊS ATUAL x ANTERIOR
-    new Chart(document.getElementById('grafComparativo').getContext('2d'), {
-        type: 'line',
-        data: {
-            labels: cmp_labels,
-            datasets: [
-                {
-                    label: "Mês atual",
-                    data: cmp_atual,
-                    borderColor: '#0d6efd',
-                    backgroundColor: 'rgba(13,110,253,0.2)',
-                    fill: true,
-                    tension: 0.3,
-                    pointRadius: 3
-                },
-                {
-                    label: "Mês anterior",
-                    data: cmp_anterior,
-                    borderColor: '#6c757d',
-                    backgroundColor: 'rgba(108,117,125,0.2)',
-                    fill: false,
-                    tension: 0.3,
-                    pointRadius: 3
-                }
-            ]
-        },
-        options: linhaMoedaOpts
-    });
-</script>
-
 {% endblock %}
