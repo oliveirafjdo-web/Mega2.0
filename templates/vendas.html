@@ -1,5 +1,4 @@
 {% extends "base.html" %}
-
 {% block content %}
 <div class="container mt-4">
 
@@ -39,10 +38,11 @@
     </div>
 
     <!-- =========================== -->
-    <!-- LINHA 1: FATURAMENTO x QUANTIDADE -->
+    <!-- GRÁFICOS (padronizados 2x2) -->
     <!-- =========================== -->
     <div class="row">
-        <!-- Faturamento diário -->
+
+        <!-- FATURAMENTO DIÁRIO -->
         <div class="col-md-6">
             <div class="card mb-4">
                 <div class="card-body">
@@ -52,7 +52,7 @@
             </div>
         </div>
 
-        <!-- Quantidade vendida por dia -->
+        <!-- QUANTIDADE -->
         <div class="col-md-6">
             <div class="card mb-4">
                 <div class="card-body">
@@ -61,13 +61,8 @@
                 </div>
             </div>
         </div>
-    </div>
 
-    <!-- =========================== -->
-    <!-- LINHA 2: LUCRO x COMPARATIVO -->
-    <!-- =========================== -->
-    <div class="row">
-        <!-- Lucro diário -->
+        <!-- LUCRO DIÁRIO -->
         <div class="col-md-6">
             <div class="card mb-4">
                 <div class="card-body">
@@ -77,7 +72,7 @@
             </div>
         </div>
 
-        <!-- Comparativo: mês atual x mês anterior -->
+        <!-- COMPARATIVO -->
         <div class="col-md-6">
             <div class="card mb-4">
                 <div class="card-body">
@@ -88,137 +83,191 @@
         </div>
     </div>
 
+    <!-- =========================== -->
+    <!-- LOTES IMPORTADOS -->
+    <!-- =========================== -->
+    <h3 class="mt-4 mb-3">Lotes importados</h3>
+
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Lote</th>
+                <th>Quantidade</th>
+                <th>Faturamento</th>
+                <th>Ação</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for lote in lotes %}
+            <tr>
+                <td>{{ lote.lote_importacao }}</td>
+                <td>{{ lote.qtd_vendas }}</td>
+                <td>R$ {{ "%.2f"|format(lote.receita_lote) }}</td>
+                <td>
+                    <form action="/excluir_lote/{{ lote.lote_importacao }}" method="POST"
+                          onsubmit="return confirm('Excluir todas as vendas desse lote?');">
+                        <button class="btn btn-danger btn-sm">Excluir lote</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <!-- =========================== -->
+    <!-- LISTA DE VENDAS -->
+    <!-- =========================== -->
+    <h3 class="mt-5 mb-3">Lista de vendas</h3>
+
+    <table class="table table-bordered table-hover">
+        <thead>
+            <tr>
+                <th>Data</th>
+                <th>Produto</th>
+                <th>Qtd</th>
+                <th>Receita</th>
+                <th>Custo</th>
+                <th>Lucro</th>
+                <th>Origem</th>
+                <th>Nº ML</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for v in vendas %}
+            <tr>
+                <td>{{ v.data_venda[:10] }}</td>
+                <td>{{ v.nome }}</td>
+                <td>{{ v.quantidade }}</td>
+                <td>R$ {{ "%.2f"|format(v.receita_total) }}</td>
+                <td>R$ {{ "%.2f"|format(v.custo_total) }}</td>
+                <td>R$ {{ "%.2f"|format(v.margem_contribuicao) }}</td>
+                <td>{{ v.origem }}</td>
+                <td>{{ v.numero_venda_ml }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
 </div>
 
-<!-- =========================== -->
-<!-- SCRIPTS DOS GRÁFICOS -->
-<!-- =========================== -->
 
-<!-- Se o Chart.js já estiver no base.html, pode remover esta linha -->
+<!-- ========================================== -->
+<!-- SCRIPTS DOS GRÁFICOS + DATALABELS PLUGIN -->
+<!-- ========================================== -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
 
 <script>
-    // Dados vindos do Flask
-    const labels = {{ grafico_labels|tojson|safe }};
-    const dadosFaturamento = {{ grafico_faturamento|tojson|safe }};
-    const dadosQuantidade = {{ grafico_quantidade|tojson|safe }};
-    const dadosLucro = {{ grafico_lucro|tojson|safe }};
 
-    const labelsCmp = {{ grafico_cmp_labels|tojson|safe }};
-    const dadosAtual = {{ grafico_cmp_atual|tojson|safe }};
-    const dadosAnterior = {{ grafico_cmp_anterior|tojson|safe }};
+// Dados do backend
+const labels = {{ grafico_labels|tojson }};
+const dadosFaturamento = {{ grafico_faturamento|tojson }};
+const dadosQuantidade = {{ grafico_quantidade|tojson }};
+const dadosLucro = {{ grafico_lucro|tojson }};
 
-    // ========================================
-    // GRÁFICO 1 — FATURAMENTO DIÁRIO (Linha + Área)
-    // ========================================
-    new Chart(document.getElementById('chartFaturamento'), {
-        type: 'line',
-        data: {
-            labels: labels,
-            datasets: [{
-                label: "Faturamento (R$)",
-                data: dadosFaturamento,
+const labelsCmp = {{ grafico_cmp_labels|tojson }};
+const dadosAtual = {{ grafico_cmp_atual|tojson }};
+const dadosAnterior = {{ grafico_cmp_anterior|tojson }};
+
+// CONFIG BÁSICA (com DATALABELS)
+const baseConfig = {
+    plugins: {
+        datalabels: {
+            color: "#000",
+            anchor: "end",
+            align: "top",
+            font: { weight: "bold", size: 11 },
+            formatter: value => value.toLocaleString("pt-BR")
+        }
+    },
+    responsive: true,
+    scales: {
+        x: { ticks: { maxRotation: 45, minRotation: 45 }},
+        y: { beginAtZero: true }
+    }
+};
+
+// FATURAMENTO
+new Chart(document.getElementById("chartFaturamento"), {
+    type: "line",
+    data: {
+        labels,
+        datasets: [{
+            label: "Faturamento (R$)",
+            data: dadosFaturamento,
+            borderColor: "#3498db",
+            backgroundColor: "rgba(52,152,219,0.3)",
+            fill: true,
+            tension: 0.3,
+            pointRadius: 4
+        }]
+    },
+    options: baseConfig
+});
+
+// QUANTIDADE
+new Chart(document.getElementById("chartQuantidade"), {
+    type: "bar",
+    data: {
+        labels,
+        datasets: [{
+            label: "Quantidade",
+            data: dadosQuantidade,
+            backgroundColor: "#1E90FF",
+            borderColor: "#1E90FF",
+            borderWidth: 1
+        }]
+    },
+    options: baseConfig
+});
+
+// LUCRO
+new Chart(document.getElementById("chartLucro"), {
+    type: "line",
+    data: {
+        labels,
+        datasets: [{
+            label: "Lucro (R$)",
+            data: dadosLucro,
+            borderColor: "#2ecc71",
+            backgroundColor: "rgba(46,204,113,0.3)",
+            fill: true,
+            tension: 0.3,
+            pointRadius: 4
+        }]
+    },
+    options: baseConfig
+});
+
+// COMPARATIVO
+new Chart(document.getElementById("chartComparativo"), {
+    type: "line",
+    data: {
+        labels: labelsCmp,
+        datasets: [
+            {
+                label: "Mês atual",
+                data: dadosAtual,
                 borderColor: "#3498db",
-                backgroundColor: "rgba(52,152,219,0.3)",
+                backgroundColor: "rgba(52,152,219,0.2)",
                 fill: true,
                 tension: 0.3,
-                pointRadius: 4
-            }]
-        },
-        options: {
-            responsive: true,
-            scales: {
-                x: { ticks: { maxRotation: 45, minRotation: 45 }},
-                y: { beginAtZero: true }
-            }
-        }
-    });
-
-    // ========================================
-    // GRÁFICO 2 — QUANTIDADE POR DIA (Barras Azuis)
-    // ========================================
-    new Chart(document.getElementById('chartQuantidade'), {
-        type: 'bar',
-        data: {
-            labels: labels,
-            datasets: [{
-                label: "Quantidade vendida",
-                data: dadosQuantidade,
-                backgroundColor: "#1E90FF",
-                borderColor: "#1E90FF",
-                borderWidth: 1
-            }]
-        },
-        options: {
-            responsive: true,
-            scales: {
-                x: { ticks: { maxRotation: 45, minRotation: 45 }},
-                y: { beginAtZero: true }
-            }
-        }
-    });
-
-    // ========================================
-    // GRÁFICO 3 — LUCRO DIÁRIO (Linha Verde + Área)
-    // ========================================
-    new Chart(document.getElementById('chartLucro'), {
-        type: 'line',
-        data: {
-            labels: labels,
-            datasets: [{
-                label: "Lucro (R$)",
-                data: dadosLucro,
-                borderColor: "#2ecc71",
-                backgroundColor: "rgba(46,204,113,0.3)",
+                pointRadius: 3
+            },
+            {
+                label: "Mês anterior",
+                data: dadosAnterior,
+                borderColor: "#9b59b6",
+                backgroundColor: "rgba(155,89,182,0.2)",
                 fill: true,
                 tension: 0.3,
-                pointRadius: 4
-            }]
-        },
-        options: {
-            responsive: true,
-            scales: {
-                x: { ticks: { maxRotation: 45, minRotation: 45 }},
-                y: { beginAtZero: true }
+                pointRadius: 3
             }
-        }
-    });
+        ]
+    },
+    options: baseConfig
+});
 
-    // ========================================
-    // GRÁFICO 4 — COMPARATIVO MÊS ATUAL X ANTERIOR
-    // ========================================
-    new Chart(document.getElementById('chartComparativo'), {
-        type: "line",
-        data: {
-            labels: labelsCmp,
-            datasets: [
-                {
-                    label: "Mês atual",
-                    data: dadosAtual,
-                    borderColor: "rgba(52,152,219,0.8)",
-                    backgroundColor: "rgba(52,152,219,0.2)",
-                    fill: true,
-                    tension: 0.3,
-                    pointRadius: 3
-                },
-                {
-                    label: "Mês anterior",
-                    data: dadosAnterior,
-                    borderColor: "rgba(155,89,182,0.8)",
-                    backgroundColor: "rgba(155,89,182,0.2)",
-                    fill: true,
-                    tension: 0.3,
-                    pointRadius: 3
-                }
-            ]
-        },
-        options: {
-            responsive: true,
-            scales: {
-                x: { ticks: { maxRotation: 45, minRotation: 45 }},
-                y: { beginAtZero: true }
-            }
-        }
-    });
 </script>
+
 {% endblock %}
