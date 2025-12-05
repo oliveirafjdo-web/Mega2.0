@@ -8,170 +8,214 @@
         Estoque e Reposição
     </h1>
 
-    <!-- CARDS RESUMO PEQUENOS LADO A LADO -->
+    <!-- CARDS SUPERIORES -->
     <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
 
-        <!-- Total de unidades -->
+        <!-- Total Unidades -->
         <div class="card bg-base-100 shadow">
             <div class="card-body py-4 px-5">
-                <p class="text-xs uppercase tracking-wide text-slate-500">
-                    Total de Unidades em Estoque
-                </p>
-                <p class="text-2xl font-bold text-slate-900 mt-1">
-                    {{ total_unidades_estoque|int }}
-                </p>
+                <p class="text-xs uppercase tracking-wide text-slate-500">Total de Unidades</p>
+                <p class="text-2xl font-bold text-slate-900 mt-1">{{ total_unidades_estoque|int }}</p>
             </div>
         </div>
 
-        <!-- Custo total -->
+        <!-- Custo Total -->
         <div class="card bg-base-100 shadow">
             <div class="card-body py-4 px-5">
-                <p class="text-xs uppercase tracking-wide text-slate-500">
-                    Custo Total do Estoque
-                </p>
-                <p class="text-2xl font-bold text-slate-900 mt-1">
-                    R$ {{ '%.2f'|format(total_custo_estoque or 0) }}
-                </p>
+                <p class="text-xs uppercase tracking-wide text-slate-500">Custo Total do Estoque</p>
+                <p class="text-2xl font-bold text-slate-900 mt-1">R$ {{ '%.2f'|format(total_custo_estoque or 0) }}</p>
             </div>
         </div>
 
-        <!-- Lucro potencial -->
+        <!-- Receita Potencial -->
         <div class="card bg-base-100 shadow">
             <div class="card-body py-4 px-5">
-                <p class="text-xs uppercase tracking-wide text-slate-500">
-                    Receita Potencial do Estoque
-                </p>
-                <p class="text-2xl font-bold text-emerald-500 mt-1">
-                    R$ {{ '%.2f'|format(lucro_potencial_total or 0) }}
-                </p>
-                <p class="text-[11px] text-slate-500 mt-1">
-                    Lucro líquido estimado com base no histórico de vendas.
-                </p>
+                <p class="text-xs uppercase tracking-wide text-slate-500">Receita Potencial</p>
+                <p class="text-2xl font-bold text-emerald-500 mt-1">R$ {{ '%.2f'|format(lucro_potencial_total or 0) }}</p>
             </div>
         </div>
 
-        <!-- NOVO CARD: Retorno potencial (%) -->
+        <!-- Retorno Potencial (%) -->
         <div class="card bg-base-100 shadow">
             <div class="card-body py-4 px-5">
-                <p class="text-xs uppercase tracking-wide text-slate-500">
-                    Retorno Potencial do Estoque
-                </p>
+                <p class="text-xs uppercase tracking-wide text-slate-500">Retorno Potencial</p>
                 <p class="text-2xl font-bold text-violet-500 mt-1">
-                    {% if total_custo_estoque and total_custo_estoque > 0 %}
+                    {% if total_custo_estoque > 0 %}
                         {{ '%.2f'|format((lucro_potencial_total / total_custo_estoque) * 100) }}%
                     {% else %}
                         0,00%
                     {% endif %}
-                </p>
-                <p class="text-[11px] text-slate-500 mt-1">
-                    Relação entre lucro potencial e custo total do estoque.
                 </p>
             </div>
         </div>
 
     </div>
 
-    <!-- TABELA DE PRODUTOS -->
+    <!-- FILTROS E BUSCA -->
+    <div class="flex flex-col md:flex-row gap-4 mb-4">
+
+        <!-- Campo de busca -->
+        <input 
+            id="filtroBusca"
+            type="text"
+            placeholder="Filtrar por nome ou SKU..."
+            class="input input-bordered w-full md:w-80"
+            onkeyup="filtrarTabela()"
+        />
+
+        <!-- Botões de filtros -->
+        <div class="flex gap-2">
+            <button class="btn btn-sm" onclick="filtrarStatus('todos')">Todos</button>
+            <button class="btn btn-sm btn-success" onclick="filtrarStatus('ok')">OK</button>
+            <button class="btn btn-sm btn-warning" onclick="filtrarStatus('repor')">Repor</button>
+            <button class="btn btn-sm btn-error" onclick="filtrarStatus('sem-estoque')">Sem estoque</button>
+        </div>
+
+    </div>
+
+    <!-- TABELA COMPLETA -->
     <div class="overflow-x-auto">
-        <table class="min-w-full text-sm border border-slate-300"
-               style="background:#ffffff; color:#000000;">
+        <table id="tabelaEstoque" class="min-w-full text-sm border border-slate-300" style="background:#ffffff; color:#000000;">
+            
             <thead style="background:#e5e7eb; color:#000000; font-weight:600;">
                 <tr>
-                    <th class="px-3 py-2 text-left">Produto</th>
-                    <th class="px-3 py-2 text-left">SKU</th>
-                    <th class="px-3 py-2 text-right">Estoque atual</th>
-                    <th class="px-3 py-2 text-right">Custo unitário (R$)</th>
-                    <th class="px-3 py-2 text-right">Custo total (R$)</th>
-                    <th class="px-3 py-2 text-right">Média diária</th>
-                    <th class="px-3 py-2 text-right">Média mensal</th>
-                    <th class="px-3 py-2 text-right">Dias de cobertura</th>
-                    <th class="px-3 py-2 text-right">Lucro potencial (R$)</th>
-                    <th class="px-3 py-2 text-right">Retorno (%)</th>
+                    <th class="px-3 py-2 text-left sort" data-col="nome">Produto ⬍</th>
+                    <th class="px-3 py-2 text-left sort" data-col="sku">SKU ⬍</th>
+                    <th class="px-3 py-2 text-right sort" data-col="estoque">Estoque ⬍</th>
+                    <th class="px-3 py-2 text-right">Custo unit.</th>
+                    <th class="px-3 py-2 text-right">Custo total</th>
+                    <th class="px-3 py-2 text-right sort" data-col="media_diaria">Média diária ⬍</th>
+                    <th class="px-3 py-2 text-right sort" data-col="dias">Dias cob. ⬍</th>
+                    <th class="px-3 py-2 text-right sort" data-col="lucro">Lucro pot. ⬍</th>
+                    <th class="px-3 py-2 text-right sort" data-col="retorno">Retorno (%) ⬍</th>
                     <th class="px-3 py-2 text-center">Situação</th>
                 </tr>
             </thead>
+
             <tbody>
                 {% for p in produtos %}
 
-                {# cor da linha: vermelho se estoque 0, amarelo se precisa repor, senão branco #}
-                {% set row_style = "" %}
-                {% if p.estoque_atual|int == 0 %}
-                    {% set row_style = "background:#fee2e2;" %}
-                {% elif p.precisa_repor %}
-                    {% set row_style = "background:#fef9c3;" %}
+                {% set status = 
+                    'sem-estoque' if p.estoque_atual|int == 0 else
+                    'repor' if p.precisa_repor else
+                    'ok'
+                %}
+
+                {% set row_style = '' %}
+                {% if status == 'sem-estoque' %}
+                    {% set row_style = 'background:#fee2e2;' %}
+                {% elif status == 'repor' %}
+                    {% set row_style = 'background:#fef9c3;' %}
                 {% endif %}
 
-                <tr class="border-t border-slate-300" style="color:#000000; {{ row_style }}">
+                <tr 
+                    class="border-t border-slate-300"
+                    style="color:#000000; {{ row_style }}"
+                    data-status="{{ status }}"
+                    data-nome="{{ p.nome|lower }}"
+                    data-sku="{{ p.sku|lower }}"
+                    data-estoque="{{ p.estoque_atual|int }}"
+                    data-media_diaria="{{ '%.2f'|format(p.media_diaria or 0) }}"
+                    data-dias="{{ '%.2f'|format(p.dias_cobertura or 0) }}"
+                    data-lucro="{{ '%.2f'|format(p.lucro_potencial or 0) }}"
+                    data-retorno="{{ '%.2f'|format(p.retorno_percent or 0) }}"
+                >
                     <td class="px-3 py-2">{{ p.nome }}</td>
                     <td class="px-3 py-2">{{ p.sku }}</td>
 
-                    <td class="px-3 py-2 text-right">
-                        {{ p.estoque_atual|int }}
-                    </td>
+                    <td class="px-3 py-2 text-right">{{ p.estoque_atual|int }}</td>
+                    <td class="px-3 py-2 text-right">R$ {{ '%.2f'|format(p.custo_unitario or 0) }}</td>
+                    <td class="px-3 py-2 text-right">R$ {{ '%.2f'|format(p.custo_estoque or 0) }}</td>
 
-                    <td class="px-3 py-2 text-right">
-                        R$ {{ '%.2f'|format(p.custo_unitario or 0) }}
-                    </td>
-
-                    <td class="px-3 py-2 text-right">
-                        R$ {{ '%.2f'|format(p.custo_estoque or 0) }}
-                    </td>
-
-                    <!-- MÉDIAS COM 2 CASAS -->
-                    <td class="px-3 py-2 text-right">
-                        {{ '%.2f'|format(p.media_diaria or 0) }}
-                    </td>
-
-                    <td class="px-3 py-2 text-right">
-                        {{ '%.2f'|format(p.media_mensal or 0) }}
-                    </td>
-
-                    <!-- DIAS COBERTURA COM 2 CASAS -->
+                    <td class="px-3 py-2 text-right">{{ '%.2f'|format(p.media_diaria or 0) }}</td>
                     <td class="px-3 py-2 text-right">
                         {% if p.dias_cobertura %}
-                            {{ '%.2f'|format(p.dias_cobertura) }} dias
+                            {{ '%.2f'|format(p.dias_cobertura) }}
                         {% else %}
                             -
                         {% endif %}
                     </td>
 
-                    <!-- Lucro potencial -->
-                    <td class="px-3 py-2 text-right"
-                        style="color:#059669; font-weight:600;">
+                    <td class="px-3 py-2 text-right" style="color:#059669; font-weight:600;">
                         R$ {{ '%.2f'|format(p.lucro_potencial or 0) }}
                     </td>
 
-                    <!-- Retorno -->
-                    <td class="px-3 py-2 text-right"
-                        style="color:#1d4ed8; font-weight:600;">
+                    <td class="px-3 py-2 text-right" style="color:#1d4ed8; font-weight:600;">
                         {{ '%.2f'|format(p.retorno_percent or 0) }}%
                     </td>
 
-                    <!-- Situação -->
                     <td class="px-3 py-2 text-center">
-                        {% if p.estoque_atual|int == 0 %}
-                            <span class="px-2 py-1 rounded-full text-xs font-semibold"
-                                  style="background:#b91c1c; color:#fef2f2;">
-                                Sem estoque
-                            </span>
-                        {% elif p.precisa_repor %}
-                            <span class="px-2 py-1 rounded-full text-xs font-semibold"
-                                  style="background:#facc15; color:#422006;">
-                                Repor
-                            </span>
+                        {% if status == 'sem-estoque' %}
+                            <span class="px-2 py-1 rounded-full text-xs font-semibold" style="background:#b91c1c; color:#fef2f2;">Sem estoque</span>
+                        {% elif status == 'repor' %}
+                            <span class="px-2 py-1 rounded-full text-xs font-semibold" style="background:#facc15; color:#422006;">Repor</span>
                         {% else %}
-                            <span class="px-2 py-1 rounded-full text-xs font-semibold"
-                                  style="background:#22c55e; color:#052e16;">
-                                OK
-                            </span>
+                            <span class="px-2 py-1 rounded-full text-xs font-semibold" style="background:#22c55e; color:#052e16;">OK</span>
                         {% endif %}
                     </td>
                 </tr>
+
                 {% endfor %}
             </tbody>
         </table>
     </div>
 
 </div>
+
+<!-- SCRIPTS DE FILTRO E ORDENAÇÃO -->
+<script>
+
+/* FILTRAR POR TEXTO */
+function filtrarTabela() {
+    const busca = document.getElementById("filtroBusca").value.toLowerCase();
+    const linhas = document.querySelectorAll("#tabelaEstoque tbody tr");
+
+    linhas.forEach(l => {
+        const nome = l.dataset.nome;
+        const sku = l.dataset.sku;
+        l.style.display = (nome.includes(busca) || sku.includes(busca)) ? "" : "none";
+    });
+}
+
+/* FILTRAR POR STATUS */
+function filtrarStatus(status) {
+    const linhas = document.querySelectorAll("#tabelaEstoque tbody tr");
+
+    linhas.forEach(l => {
+        if (status === "todos") {
+            l.style.display = "";
+        } else {
+            l.style.display = (l.dataset.status === status) ? "" : "none";
+        }
+    });
+}
+
+/* ORDENAR COLUNA (DESCENDENTE SEMPRE) */
+function ordenarPor(coluna, crescente = false) {
+    const tabela = document.querySelector("#tabelaEstoque tbody");
+    const linhas = Array.from(tabela.querySelectorAll("tr"));
+
+    linhas.sort((a, b) => {
+        const v1 = parseFloat(a.dataset[coluna]) || 0;
+        const v2 = parseFloat(b.dataset[coluna]) || 0;
+        return crescente ? v1 - v2 : v2 - v1;
+    });
+
+    linhas.forEach(l => tabela.appendChild(l));
+}
+
+/* Clicar nos headers para ordenar */
+document.querySelectorAll(".sort").forEach(header => {
+    header.addEventListener("click", () => {
+        const col = header.dataset.col;
+        ordenarPor(col, false);
+    });
+});
+
+/* ORDENAR AUTOMATICAMENTE POR MAIOR ESTOQUE */
+document.addEventListener("DOMContentLoaded", () => {
+    ordenarPor("estoque", false);
+});
+</script>
 
 {% endblock %}
