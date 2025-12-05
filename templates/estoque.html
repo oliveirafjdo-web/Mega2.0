@@ -21,8 +21,8 @@
             <div class="stat-value">R$ {{ '%.2f'|format(total_custo_estoque or 0) }}</div>
         </div>
 
-        <!-- LUCRO POTENCIAL DO ESTOQUE (NOVO) -->
-        <div class="stat bg-white rounded shadow p-4 bg-green-50 border border-green-300">
+        <!-- LUCRO POTENCIAL DO ESTOQUE -->
+        <div class="stat bg-green-50 border border-green-300 rounded p-4">
             <div class="stat-title font-bold text-green-700">
                 Receita Potencial do Estoque (Lucro Líquido Esperado)
             </div>
@@ -34,6 +34,27 @@
             </div>
         </div>
 
+    </div>
+
+    <!-- PARÂMETROS DE ANÁLISE / EXPLICAÇÃO (OPCIONAL) -->
+    <div class="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+        <div class="bg-white rounded shadow p-4">
+            <h2 class="font-semibold mb-2">Parâmetros de análise</h2>
+            <p>Período de média: últimos {{ janela_dias }} dias.</p>
+            <p>Estoque mínimo desejado: {{ dias_minimos }} dias de cobertura.</p>
+            <p>Produtos com cobertura abaixo do mínimo aparecem como <strong>"Repor"</strong>.</p>
+        </div>
+        <div class="bg-white rounded shadow p-4">
+            <h2 class="font-semibold mb-2">Como o lucro potencial é calculado?</h2>
+            <p>Para cada produto, o sistema usa o histórico de vendas para calcular o lucro líquido por unidade:</p>
+            <p class="mt-1">
+                <strong>Lucro líquido = Receita - Comissão ML - Custo - Imposto - Despesas</strong>
+            </p>
+            <p class="mt-1">
+                Esse lucro por unidade é multiplicado pelo estoque atual, gerando o
+                <strong>lucro potencial do estoque</strong>.
+            </p>
+        </div>
     </div>
 
     <!-- TABELA DE PRODUTOS -->
@@ -52,7 +73,6 @@
                     <th>Média mensal</th>
                     <th>Dias de cobertura</th>
 
-                    <!-- NOVO -->
                     <th>Lucro potencial (R$)</th>
                     <th>Retorno (%)</th>
 
@@ -63,20 +83,21 @@
             <tbody>
                 {% for p in produtos %}
                 <tr>
-
                     <td>{{ p.nome }}</td>
                     <td>{{ p.sku }}</td>
                     <td>{{ p.estoque_atual|int }}</td>
 
-                    <td>R$ {{ '%.2f'|format(p.custo_unitario) }}</td>
-                    <td>R$ {{ '%.2f'|format(p.custo_estoque) }}</td>
+                    <td>R$ {{ '%.2f'|format(p.custo_unitario or 0) }}</td>
+                    <td>R$ {{ '%.2f'|format(p.custo_estoque or 0) }}</td>
 
-                    <td>{{ '%.2f'|format(p.media_diaria) }}</td>
-                    <td>{{ '%.2f'|format(p.media_mensal) }}</td>
+                    <!-- 2 casas decimais nas médias -->
+                    <td>{{ '%.2f'|format(p.media_diaria or 0) }}</td>
+                    <td>{{ '%.2f'|format(p.media_mensal or 0) }}</td>
 
+                    <!-- Dias de cobertura também com 2 casas -->
                     <td>
                         {% if p.dias_cobertura %}
-                            {{ '%.0f'|format(p.dias_cobertura) }} dias
+                            {{ '%.2f'|format(p.dias_cobertura) }} dias
                         {% else %}
                             -
                         {% endif %}
@@ -92,7 +113,7 @@
                         {{ '%.2f'|format(p.retorno_percent or 0) }}%
                     </td>
 
-                    <!-- SITUAÇÃO -->
+                    <!-- SITUAÇÃO REPOR / OK -->
                     <td>
                         {% if p.precisa_repor %}
                             <span class="badge badge-warning">Repor</span>
@@ -100,7 +121,6 @@
                             <span class="badge badge-success">OK</span>
                         {% endif %}
                     </td>
-
                 </tr>
                 {% endfor %}
             </tbody>
