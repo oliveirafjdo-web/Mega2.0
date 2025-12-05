@@ -103,7 +103,15 @@
             </thead>
             <tbody>
                 {% for p in produtos %}
-                <tr class="border-t border-slate-300" style="color:#000000;">
+                {# cor da linha: vermelho se estoque 0, senão amarelo se precisa repor, senão branco #}
+                {% set row_style = "" %}
+                {% if p.estoque_atual|int == 0 %}
+                    {% set row_style = "background:#fee2e2;" %}
+                {% elif p.precisa_repor %}
+                    {% set row_style = "background:#fef9c3;" %}
+                {% endif %}
+
+                <tr class="border-t border-slate-300" style="color:#000000; {{ row_style }}">
                     <td class="px-3 py-2">{{ p.nome }}</td>
                     <td class="px-3 py-2">{{ p.sku }}</td>
 
@@ -119,7 +127,7 @@
                         R$ {{ '%.2f'|format(p.custo_estoque or 0) }}
                     </td>
 
-                    <!-- 2 casas decimais nas médias -->
+                    <!-- MÉDIAS COM 2 CASAS -->
                     <td class="px-3 py-2 text-right">
                         {{ '%.2f'|format(p.media_diaria or 0) }}
                     </td>
@@ -128,7 +136,7 @@
                         {{ '%.2f'|format(p.media_mensal or 0) }}
                     </td>
 
-                    <!-- 2 casas decimais nos dias de cobertura -->
+                    <!-- DIAS COBERTURA COM 2 CASAS -->
                     <td class="px-3 py-2 text-right">
                         {% if p.dias_cobertura %}
                             {{ '%.2f'|format(p.dias_cobertura) }} dias
@@ -151,14 +159,19 @@
 
                     <!-- Situação -->
                     <td class="px-3 py-2 text-center">
-                        {% if p.precisa_repor %}
+                        {% if p.estoque_atual|int == 0 %}
                             <span class="px-2 py-1 rounded-full text-xs font-semibold"
-                                  style="background:#fef3c7; color:#92400e;">
+                                  style="background:#b91c1c; color:#fef2f2;">
+                                Sem estoque
+                            </span>
+                        {% elif p.precisa_repor %}
+                            <span class="px-2 py-1 rounded-full text-xs font-semibold"
+                                  style="background:#facc15; color:#422006;">
                                 Repor
                             </span>
                         {% else %}
                             <span class="px-2 py-1 rounded-full text-xs font-semibold"
-                                  style="background:#dcfce7; color:#166534;">
+                                  style="background:#22c55e; color:#052e16;">
                                 OK
                             </span>
                         {% endif %}
