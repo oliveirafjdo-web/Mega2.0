@@ -8,76 +8,65 @@
         Estoque e Reposição
     </h1>
 
-    <!-- CARDS RESUMO (PADRÃO DASHBOARD) -->
-    <div class="stats stats-vertical lg:stats-horizontal shadow mb-8 bg-base-100">
+    <!-- CARDS RESUMO PEQUENOS LADO A LADO -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
 
         <!-- Total de unidades -->
-        <div class="stat">
-            <div class="stat-title text-slate-800">
-                Total de Unidades em Estoque
-            </div>
-            <div class="stat-value text-slate-900">
-                {{ total_unidades_estoque|int }}
+        <div class="card bg-base-100 shadow">
+            <div class="card-body py-4 px-5">
+                <p class="text-xs uppercase tracking-wide text-slate-500">
+                    Total de Unidades em Estoque
+                </p>
+                <p class="text-2xl font-bold text-slate-900 mt-1">
+                    {{ total_unidades_estoque|int }}
+                </p>
             </div>
         </div>
 
         <!-- Custo total -->
-        <div class="stat">
-            <div class="stat-title text-slate-800">
-                Custo Total do Estoque
-            </div>
-            <div class="stat-value text-slate-900">
-                R$ {{ '%.2f'|format(total_custo_estoque or 0) }}
+        <div class="card bg-base-100 shadow">
+            <div class="card-body py-4 px-5">
+                <p class="text-xs uppercase tracking-wide text-slate-500">
+                    Custo Total do Estoque
+                </p>
+                <p class="text-2xl font-bold text-slate-900 mt-1">
+                    R$ {{ '%.2f'|format(total_custo_estoque or 0) }}
+                </p>
             </div>
         </div>
 
         <!-- Lucro potencial -->
-        <div class="stat">
-            <div class="stat-title text-slate-800">
-                Receita Potencial do Estoque (Lucro Líquido Esperado)
-            </div>
-            <div class="stat-value text-emerald-500">
-                R$ {{ '%.2f'|format(lucro_potencial_total or 0) }}
-            </div>
-            <div class="stat-desc text-xs text-slate-600 mt-1">
-                Baseado no desempenho histórico real de vendas.
+        <div class="card bg-base-100 shadow">
+            <div class="card-body py-4 px-5">
+                <p class="text-xs uppercase tracking-wide text-slate-500">
+                    Receita Potencial do Estoque
+                </p>
+                <p class="text-2xl font-bold text-emerald-500 mt-1">
+                    R$ {{ '%.2f'|format(lucro_potencial_total or 0) }}
+                </p>
+                <p class="text-[11px] text-slate-500 mt-1">
+                    Lucro líquido estimado com base no histórico de vendas.
+                </p>
             </div>
         </div>
 
-    </div>
-
-    <!-- PARÂMETROS / EXPLICAÇÃO -->
-    <div class="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-
-        <!-- Parâmetros -->
-        <div class="rounded-lg shadow p-4 bg-base-100 text-slate-900">
-            <h2 class="font-semibold mb-2 text-slate-900">
-                Parâmetros de análise
-            </h2>
-            <p>Período de média: últimos {{ janela_dias }} dias.</p>
-            <p>Estoque mínimo desejado: {{ dias_minimos }} dias de cobertura.</p>
-            <p>
-                Produtos com cobertura abaixo do mínimo aparecem como
-                <strong>"Repor"</strong>.
-            </p>
-        </div>
-
-        <!-- Como é calculado -->
-        <div class="rounded-lg shadow p-4 bg-base-100 text-slate-900">
-            <h2 class="font-semibold mb-2 text-slate-900">
-                Como o lucro potencial é calculado?
-            </h2>
-            <p>
-                Para cada produto, o sistema usa o histórico de vendas para calcular
-                o lucro líquido por unidade:
-            </p>
-            <p class="mt-1 font-semibold">
-                Lucro líquido = Receita - Comissão ML - Custo - Imposto - Despesas
-            </p>
-            <p class="mt-1">
-                Esse lucro por unidade é multiplicado pelo estoque atual,
-                gerando o <strong>lucro potencial do estoque</strong>.
-            </p>
+        <!-- NOVO CARD: Retorno potencial (%) -->
+        <div class="card bg-base-100 shadow">
+            <div class="card-body py-4 px-5">
+                <p class="text-xs uppercase tracking-wide text-slate-500">
+                    Retorno Potencial do Estoque
+                </p>
+                <p class="text-2xl font-bold text-violet-500 mt-1">
+                    {% if total_custo_estoque and total_custo_estoque > 0 %}
+                        {{ '%.2f'|format((lucro_potencial_total / total_custo_estoque) * 100) }}%
+                    {% else %}
+                        0,00%
+                    {% endif %}
+                </p>
+                <p class="text-[11px] text-slate-500 mt-1">
+                    Relação entre lucro potencial e custo total do estoque.
+                </p>
+            </div>
         </div>
 
     </div>
@@ -103,7 +92,8 @@
             </thead>
             <tbody>
                 {% for p in produtos %}
-                {# cor da linha: vermelho se estoque 0, senão amarelo se precisa repor, senão branco #}
+
+                {# cor da linha: vermelho se estoque 0, amarelo se precisa repor, senão branco #}
                 {% set row_style = "" %}
                 {% if p.estoque_atual|int == 0 %}
                     {% set row_style = "background:#fee2e2;" %}
