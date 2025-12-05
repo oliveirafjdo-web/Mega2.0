@@ -1,39 +1,45 @@
 {% extends "base.html" %}
 {% block content %}
 
-<div class="container mx-auto px-4 py-6" style="color:#111827;">
+<div class="container mx-auto px-4 py-6">
 
     <!-- TÍTULO -->
-    <h1 class="text-3xl font-bold mb-6" style="color:#ffffff;">
+    <h1 class="text-3xl font-bold mb-6 text-white">
         Estoque e Reposição
     </h1>
 
-    <!-- CARDS RESUMO -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+    <!-- CARDS RESUMO (PADRÃO DASHBOARD) -->
+    <div class="stats stats-vertical lg:stats-horizontal shadow mb-8 bg-base-100">
 
-        <!-- Total unidades -->
-        <div class="rounded-lg shadow p-4 bg-white">
-            <div class="text-sm font-semibold">Total de Unidades em Estoque</div>
-            <div class="text-3xl font-bold mt-2">{{ total_unidades_estoque|int }}</div>
+        <!-- Total de unidades -->
+        <div class="stat">
+            <div class="stat-title text-slate-800">
+                Total de Unidades em Estoque
+            </div>
+            <div class="stat-value text-slate-900">
+                {{ total_unidades_estoque|int }}
+            </div>
         </div>
 
         <!-- Custo total -->
-        <div class="rounded-lg shadow p-4 bg-white">
-            <div class="text-sm font-semibold">Custo Total do Estoque</div>
-            <div class="text-3xl font-bold mt-2">
+        <div class="stat">
+            <div class="stat-title text-slate-800">
+                Custo Total do Estoque
+            </div>
+            <div class="stat-value text-slate-900">
                 R$ {{ '%.2f'|format(total_custo_estoque or 0) }}
             </div>
         </div>
 
-        <!-- LUCRO POTENCIAL DO ESTOQUE -->
-        <div class="rounded-lg shadow p-4" style="background:#0b1733;color:#e5f9f0;">
-            <div class="text-sm font-bold" style="color:#6ee7b7;">
+        <!-- Lucro potencial -->
+        <div class="stat">
+            <div class="stat-title text-slate-800">
                 Receita Potencial do Estoque (Lucro Líquido Esperado)
             </div>
-            <div class="text-3xl font-bold mt-2" style="color:#22c55e;">
+            <div class="stat-value text-emerald-500">
                 R$ {{ '%.2f'|format(lucro_potencial_total or 0) }}
             </div>
-            <div class="text-xs mt-2" style="color:#bbf7d0;">
+            <div class="stat-desc text-xs text-slate-600 mt-1">
                 Baseado no desempenho histórico real de vendas.
             </div>
         </div>
@@ -44,8 +50,10 @@
     <div class="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
 
         <!-- Parâmetros -->
-        <div class="rounded-lg shadow p-4 bg-white">
-            <h2 class="font-semibold mb-2">Parâmetros de análise</h2>
+        <div class="rounded-lg shadow p-4 bg-base-100 text-slate-900">
+            <h2 class="font-semibold mb-2 text-slate-900">
+                Parâmetros de análise
+            </h2>
             <p>Período de média: últimos {{ janela_dias }} dias.</p>
             <p>Estoque mínimo desejado: {{ dias_minimos }} dias de cobertura.</p>
             <p>
@@ -55,8 +63,10 @@
         </div>
 
         <!-- Como é calculado -->
-        <div class="rounded-lg shadow p-4 bg-white">
-            <h2 class="font-semibold mb-2">Como o lucro potencial é calculado?</h2>
+        <div class="rounded-lg shadow p-4 bg-base-100 text-slate-900">
+            <h2 class="font-semibold mb-2 text-slate-900">
+                Como o lucro potencial é calculado?
+            </h2>
             <p>
                 Para cada produto, o sistema usa o histórico de vendas para calcular
                 o lucro líquido por unidade:
@@ -74,48 +84,51 @@
 
     <!-- TABELA DE PRODUTOS -->
     <div class="overflow-x-auto">
-        <table class="min-w-full text-sm bg-white border border-slate-200">
-            <thead class="bg-slate-100">
+        <table class="min-w-full text-sm border border-slate-300"
+               style="background:#ffffff; color:#000000;">
+            <thead style="background:#e5e7eb; color:#000000; font-weight:600;">
                 <tr>
                     <th class="px-3 py-2 text-left">Produto</th>
                     <th class="px-3 py-2 text-left">SKU</th>
                     <th class="px-3 py-2 text-right">Estoque atual</th>
                     <th class="px-3 py-2 text-right">Custo unitário (R$)</th>
                     <th class="px-3 py-2 text-right">Custo total (R$)</th>
-
                     <th class="px-3 py-2 text-right">Média diária</th>
                     <th class="px-3 py-2 text-right">Média mensal</th>
                     <th class="px-3 py-2 text-right">Dias de cobertura</th>
-
                     <th class="px-3 py-2 text-right">Lucro potencial (R$)</th>
                     <th class="px-3 py-2 text-right">Retorno (%)</th>
-
                     <th class="px-3 py-2 text-center">Situação</th>
                 </tr>
             </thead>
             <tbody>
                 {% for p in produtos %}
-                <tr class="border-t border-slate-200">
+                <tr class="border-t border-slate-300" style="color:#000000;">
                     <td class="px-3 py-2">{{ p.nome }}</td>
                     <td class="px-3 py-2">{{ p.sku }}</td>
-                    <td class="px-3 py-2 text-right">{{ p.estoque_atual|int }}</td>
+
+                    <td class="px-3 py-2 text-right">
+                        {{ p.estoque_atual|int }}
+                    </td>
 
                     <td class="px-3 py-2 text-right">
                         R$ {{ '%.2f'|format(p.custo_unitario or 0) }}
                     </td>
+
                     <td class="px-3 py-2 text-right">
                         R$ {{ '%.2f'|format(p.custo_estoque or 0) }}
                     </td>
 
-                    <!-- 2 casas nas médias -->
+                    <!-- 2 casas decimais nas médias -->
                     <td class="px-3 py-2 text-right">
                         {{ '%.2f'|format(p.media_diaria or 0) }}
                     </td>
+
                     <td class="px-3 py-2 text-right">
                         {{ '%.2f'|format(p.media_mensal or 0) }}
                     </td>
 
-                    <!-- 2 casas nos dias de cobertura -->
+                    <!-- 2 casas decimais nos dias de cobertura -->
                     <td class="px-3 py-2 text-right">
                         {% if p.dias_cobertura %}
                             {{ '%.2f'|format(p.dias_cobertura) }} dias
@@ -125,12 +138,14 @@
                     </td>
 
                     <!-- Lucro potencial -->
-                    <td class="px-3 py-2 text-right" style="color:#059669;font-weight:600;">
+                    <td class="px-3 py-2 text-right"
+                        style="color:#059669; font-weight:600;">
                         R$ {{ '%.2f'|format(p.lucro_potencial or 0) }}
                     </td>
 
                     <!-- Retorno -->
-                    <td class="px-3 py-2 text-right" style="color:#1d4ed8;font-weight:600;">
+                    <td class="px-3 py-2 text-right"
+                        style="color:#1d4ed8; font-weight:600;">
                         {{ '%.2f'|format(p.retorno_percent or 0) }}%
                     </td>
 
@@ -138,12 +153,12 @@
                     <td class="px-3 py-2 text-center">
                         {% if p.precisa_repor %}
                             <span class="px-2 py-1 rounded-full text-xs font-semibold"
-                                  style="background:#fef3c7;color:#92400e;">
+                                  style="background:#fef3c7; color:#92400e;">
                                 Repor
                             </span>
                         {% else %}
                             <span class="px-2 py-1 rounded-full text-xs font-semibold"
-                                  style="background:#dcfce7;color:#166534;">
+                                  style="background:#dcfce7; color:#166534;">
                                 OK
                             </span>
                         {% endif %}
