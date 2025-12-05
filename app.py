@@ -784,9 +784,12 @@ def exportar_template():
 
 
 # ---------------- ESTOQUE / AJUSTES ----------------
+# ---------------- ESTOQUE / AJUSTES ----------------
 @app.route("/estoque")
 def estoque_view():
-    """Visão de estoque com médias reais dos últimos 30 dias."""
+    """Visão de estoque com médias reais dos últimos 30 dias
+    + lucro potencial (lucro líquido histórico esperado).
+    """
 
     JANELA_DIAS = 30     # FIXO: últimos 30 dias sempre
     DIAS_MINIMOS = 15    # estoque mínimo desejado em dias
@@ -806,7 +809,7 @@ def estoque_view():
             ).order_by(produtos.c.nome)
         ).mappings().all()
 
-        # Vendas (todas, vamos filtrar via Python)
+        # Vendas (para cálculo de média dos últimos 30 dias)
         vendas_rows = conn.execute(
             select(
                 vendas.c.produto_id,
@@ -814,6 +817,29 @@ def estoque_view():
                 vendas.c.quantidade,
             )
         ).mappings().all()
+
+        # Configurações de imposto e despesas
+        cfg = conn.execute(
+            select(configuracoes).where(configuracoes.c.id == 1)
+        ).mappings().first() or {}
+
+        imposto_percent = float(cfg.get("imposto_percent") or 0)
+        despesas_percent = float(cfg.get("despesas_percent") or 0)
+
+        # Agregado histórico de vendas por produto (para lucro potencial)
+        vendas_historico = conn.execute(
+            select(
+                vendas.c.produto_id,
+                func.coalesce(func.sum(vendas.c.quantidade), 0).label("qtd"),
+                func.coalesce(func.sum(vendas.c.receita_total), 0).label("receita"),
+                func.coalesce(func.sum(vendas.c.custo_total), 0).label("custo"),
+                func.coalesce(func.sum(vendas.c.margem_contribuicao), 0).label("margem_atual"),
+            )
+            .group_by(vendas.c.produto_id)
+        ).mappings().all()
+
+    # Indexa histórico por produto_id
+    hist_por_produto = {h["produto_id"]: h for h in vendas_historico}
 
     # Soma das vendas por produto dentro da janela (últimos 30 dias)
     vendas_por_produto = {}
@@ -826,18 +852,12 @@ def estoque_view():
         if not data_raw:
             continue
 
-        # tenta converter para datetime
-        dt = None
-        try:
-            dt = parse_data_venda(data_raw)
-        except:
+        dt = parse_data_venda(data_raw)
+        if not dt:
             try:
                 dt = datetime.fromisoformat(str(data_raw))
-            except:
+            except Exception:
                 continue
-
-        if dt is None:
-            continue
 
         # só considera vendas dentro dos últimos 30 dias
         if dt < limite_30dias or dt > hoje:
@@ -849,6 +869,7 @@ def estoque_view():
     produtos_enriquecidos = []
     total_unidades_estoque = 0
     total_custo_estoque = 0
+    lucro_potencial_total = 0
 
     for p in produtos_rows:
         pid = p["id"]
@@ -863,8 +884,44 @@ def estoque_view():
 
         # Cobertura
         dias_cobertura = estoque_atual / media_diaria if media_diaria > 0 else None
-
         precisa_repor = dias_cobertura is not None and dias_cobertura < DIAS_MINIMOS
+
+        # -------- LUCRO POTENCIAL (histórico) --------
+        h = hist_por_produto.get(pid)
+        lucro_potencial = 0.0
+        retorno_percent = 0.0
+
+        if h:
+            qtd_vendida = float(h["qtd"] or 0)
+            receita_total = float(h["receita"] or 0)
+            custo_total = float(h["custo"] or 0)
+            margem_atual = float(h["margem_atual"] or 0)
+
+            # Comissão estimada do ML (igual ao relatório de lucro)
+            comissao_ml = max(0.0, (receita_total - custo_total) - margem_atual)
+
+            imposto_val = receita_total * (imposto_percent / 100.0)
+            despesas_val = receita_total * (despesas_percent / 100.0)
+
+            lucro_liquido_total = (
+                receita_total
+                - custo_total
+                - comissao_ml
+                - imposto_val
+                - despesas_val
+            )
+
+            if qtd_vendida > 0:
+                lucro_liquido_unitario = lucro_liquido_total / qtd_vendida
+            else:
+                lucro_liquido_unitario = 0.0
+
+            lucro_potencial = lucro_liquido_unitario * estoque_atual
+
+            if custo_estoque > 0:
+                retorno_percent = (lucro_potencial / custo_estoque) * 100.0
+
+        lucro_potencial_total += lucro_potencial
 
         produtos_enriquecidos.append({
             "id": pid,
@@ -877,6 +934,8 @@ def estoque_view():
             "media_mensal": media_mensal,
             "dias_cobertura": dias_cobertura,
             "precisa_repor": precisa_repor,
+            "lucro_potencial": lucro_potencial,
+            "retorno_percent": retorno_percent,
         })
 
         total_unidades_estoque += estoque_atual
@@ -885,10 +944,13 @@ def estoque_view():
     return render_template(
         "estoque.html",
         produtos=produtos_enriquecidos,
-        janela_dias=30,
+        janela_dias=JANELA_DIAS,
         dias_minimos=DIAS_MINIMOS,
         total_unidades_estoque=total_unidades_estoque,
         total_custo_estoque=total_custo_estoque,
+        lucro_potencial_total=lucro_potencial_total,
+        imposto_percent=imposto_percent,
+        despesas_percent=despesas_percent,
     )
 
 # GET – formulário de ajuste
