@@ -692,7 +692,7 @@ def excluir_venda(venda_id):
     return redirect(url_for("lista_vendas"))
 
 
-@app.route("/excluir_lote/<lote>")
+@app.route("/excluir_lote/<path:lote>", methods=["POST"])
 def excluir_lote(lote):
     with engine.connect() as conn:
         conn.execute(
