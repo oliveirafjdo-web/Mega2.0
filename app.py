@@ -692,11 +692,14 @@ def excluir_venda(venda_id):
     return redirect(url_for("lista_vendas"))
 
 
-@app.route("/vendas/lote/<lote_id>/excluir", methods=["POST"])
-def excluir_lote_vendas(lote_id):
-    with engine.begin() as conn:
-        conn.execute(delete(vendas).where(vendas.c.lote_importacao == lote_id))
-    flash("Lote de importação excluído com sucesso!", "success")
+@app.route("/excluir_lote/<lote>")
+def excluir_lote(lote):
+    with engine.connect() as conn:
+        conn.execute(
+            vendas.delete().where(vendas.c.lote_importacao == lote)
+        )
+        conn.commit()
+
     return redirect(url_for("lista_vendas"))
 
 
