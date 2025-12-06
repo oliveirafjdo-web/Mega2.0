@@ -454,13 +454,36 @@ def excluir_produto(produto_id):
 
 
 # ---------------- VENDAS ----------------
+from flask import request, render_template
+from sqlalchemy import select, func
+from datetime import date, datetime, timedelta
+from math import ceil
+
+VENDAS_POR_PAGINA = 100
+
 @app.route("/vendas")
 def lista_vendas():
     data_inicio = request.args.get("data_inicio") or ""
     data_fim = request.args.get("data_fim") or ""
+    page = int(request.args.get("page", 1))
+
+    # =======================
+    # DEFINIR PERÍODO 30 DIAS
+    # =======================
+    hoje = date.today()
+    trinta_dias_atras = hoje - timedelta(days=29)
+    default_data_inicio = trinta_dias_atras.isoformat()
+    default_data_fim = hoje.isoformat()
+
+    if not data_inicio:
+        data_inicio = default_data_inicio
+    if not data_fim:
+        data_fim = default_data_fim
 
     with engine.connect() as conn:
-        # Query base das vendas
+        # =======================
+        # CONSULTA VENDAS
+        # =======================
         query_vendas = select(
             vendas.c.id,
             vendas.c.data_venda,
@@ -475,46 +498,49 @@ def lista_vendas():
             produtos.c.nome,
         ).select_from(vendas.join(produtos))
 
-        if data_inicio:
-            query_vendas = query_vendas.where(vendas.c.data_venda >= data_inicio)
+        query_vendas = query_vendas.where(
+            vendas.c.data_venda >= data_inicio,
+            vendas.c.data_venda <= data_fim + "T23:59:59"
+        ).order_by(vendas.c.data_venda.asc())
 
-        if data_fim:
-            query_vendas = query_vendas.where(vendas.c.data_venda <= data_fim + "T23:59:59")
+        vendas_all = conn.execute(query_vendas).mappings().all()
 
-        query_vendas = query_vendas.order_by(vendas.c.data_venda.asc())
-        vendas_rows = conn.execute(query_vendas).mappings().all()
+        # Paginação
+        total_vendas = len(vendas_all)
+        total_pages = ceil(total_vendas / VENDAS_POR_PAGINA)
+        start = (page - 1) * VENDAS_POR_PAGINA
+        end = start + VENDAS_POR_PAGINA
+        vendas_rows = vendas_all[start:end]
 
-        # Lotes
+        # =======================
+        # CONSULTA LOTES
+        # =======================
         query_lotes = select(
             vendas.c.lote_importacao.label("lote_importacao"),
             func.count().label("qtd_vendas"),
             func.coalesce(func.sum(vendas.c.receita_total), 0).label("receita_lote"),
-        ).where(vendas.c.lote_importacao.isnot(None))
+        ).where(vendas.c.lote_importacao.isnot(None),
+                vendas.c.data_venda >= data_inicio,
+                vendas.c.data_venda <= data_fim + "T23:59:59"
+        ).group_by(vendas.c.lote_importacao)
 
-        if data_inicio:
-            query_lotes = query_lotes.where(vendas.c.data_venda >= data_inicio)
-
-        if data_fim:
-            query_lotes = query_lotes.where(vendas.c.data_venda <= data_fim + "T23:59:59")
-
-        query_lotes = query_lotes.group_by(vendas.c.lote_importacao)
         lotes = conn.execute(query_lotes).mappings().all()
 
+        # Produtos
         produtos_rows = conn.execute(
             select(produtos.c.id, produtos.c.nome).order_by(produtos.c.nome)
         ).mappings().all()
 
     # =======================
-    # CALCULOS PARA GRÁFICOS
+    # CALCULOS PARA GRÁFICOS (FATURAMENTO, QUANTIDADE, LUCRO)
     # =======================
     faturamento_dia = {}
     quantidade_dia = {}
     lucro_dia = {}
 
-    for v in vendas_rows:
+    for v in vendas_all:
         if not v["data_venda"]:
             continue
-
         try:
             dt = datetime.fromisoformat(v["data_venda"]).date()
         except:
@@ -524,60 +550,59 @@ def lista_vendas():
         custo = float(v["custo_total"] or 0)
         margem = float(v["margem_contribuicao"] or 0)
         qtd = float(v["quantidade"] or 0)
-
         lucro = receita - custo - max(0.0, (receita - custo) - margem)
 
-        # faturamento diário
         faturamento_dia[dt] = faturamento_dia.get(dt, 0) + receita
-
-        # quantidade por dia
         quantidade_dia[dt] = quantidade_dia.get(dt, 0) + qtd
-
-        # lucro diário
         lucro_dia[dt] = lucro_dia.get(dt, 0) + lucro
 
-    grafico_labels = [d.isoformat() for d in sorted(faturamento_dia.keys())]
-    grafico_faturamento = [faturamento_dia[d] for d in sorted(faturamento_dia.keys())]
-    grafico_quantidade = [quantidade_dia.get(d, 0) for d in sorted(faturamento_dia.keys())]
-    grafico_lucro = [lucro_dia.get(d, 0) for d in sorted(faturamento_dia.keys())]
+    # Ordenar últimos 30 dias
+    dias = [hoje - timedelta(days=i) for i in range(29, -1, -1)]
+    grafico_labels = [d.isoformat() for d in dias]
+    grafico_faturamento = [faturamento_dia.get(d, 0) for d in dias]
+    grafico_quantidade = [quantidade_dia.get(d, 0) for d in dias]
+    grafico_lucro = [lucro_dia.get(d, 0) for d in dias]
 
     # =========================
-    # MÊS ATUAL vs MÊS ANTERIOR
+    # COMPARATIVO MÊS ATUAL x MÊS ANTERIOR
     # =========================
-
-    hoje = date.today()
     inicio_mes_atual = hoje.replace(day=1)
-    if inicio_mes_atual.month == 1:
-        inicio_mes_anterior = inicio_mes_atual.replace(year=inicio_mes_atual.year - 1, month=12)
-    else:
-        inicio_mes_anterior = inicio_mes_atual.replace(month=inicio_mes_atual.month - 1)
+    inicio_mes_anterior = (inicio_mes_atual - timedelta(days=1)).replace(day=1)
+
+    dias_mes_atual = []
+    dias_mes_anterior = []
 
     faturamento_mes_atual = {}
     faturamento_mes_anterior = {}
 
-    for v in vendas_rows:
+    for v in vendas_all:
         if not v["data_venda"]:
             continue
-
         dt = datetime.fromisoformat(v["data_venda"]).date()
+        receita = float(v["receita_total"] or 0)
 
         if dt >= inicio_mes_atual:
-            faturamento_mes_atual[dt] = faturamento_mes_atual.get(dt, 0) + float(v["receita_total"] or 0)
+            faturamento_mes_atual[dt] = faturamento_mes_atual.get(dt, 0) + receita
+        elif inicio_mes_anterior <= dt < inicio_mes_atual:
+            faturamento_mes_anterior[dt] = faturamento_mes_anterior.get(dt, 0) + receita
 
-        if dt >= inicio_mes_anterior and dt < inicio_mes_atual:
-            faturamento_mes_anterior[dt] = faturamento_mes_anterior.get(dt, 0) + float(v["receita_total"] or 0)
+    # Preencher listas de dias
+    dias_mes_atual = sorted(faturamento_mes_atual.keys())
+    dias_mes_anterior = sorted(faturamento_mes_anterior.keys())
 
-    grafico_cmp_labels = [d.isoformat() for d in sorted(faturamento_mes_atual.keys())]
-    grafico_cmp_atual = [faturamento_mes_atual[d] for d in sorted(faturamento_mes_atual.keys())]
+    grafico_cmp_labels = [d.isoformat() for d in dias_mes_atual]
+    grafico_cmp_atual = [faturamento_mes_atual.get(d, 0) for d in dias_mes_atual]
     grafico_cmp_anterior = [faturamento_mes_anterior.get(
-        (inicio_mes_atual.replace(day=1) + (d - inicio_mes_atual.replace(day=1))), 0
-    ) for d in sorted(faturamento_mes_atual.keys())]
+        inicio_mes_anterior + timedelta(days=(d - inicio_mes_atual).days), 0
+    ) for d in dias_mes_atual]
 
+    # =========================
     # TOTAIS
+    # =========================
     totais = {
-        "qtd": sum(q["quantidade"] for q in vendas_rows),
-        "receita": sum(q["receita_total"] for q in vendas_rows),
-        "custo": sum(q["custo_total"] for q in vendas_rows),
+        "qtd": sum(q["quantidade"] for q in vendas_all),
+        "receita": sum(q["receita_total"] for q in vendas_all),
+        "custo": sum(q["custo_total"] for q in vendas_all),
     }
 
     return render_template(
@@ -595,7 +620,10 @@ def lista_vendas():
         grafico_cmp_labels=grafico_cmp_labels,
         grafico_cmp_atual=grafico_cmp_atual,
         grafico_cmp_anterior=grafico_cmp_anterior,
+        total_pages=total_pages,
+        current_page=page
     )
+
 
 @app.route("/vendas/manual", methods=["POST"])
 def criar_venda_manual():
