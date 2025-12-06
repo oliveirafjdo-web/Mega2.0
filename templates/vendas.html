@@ -1,6 +1,25 @@
 {% extends "base.html" %}
+{% block title %}Vendas - Metrify{% endblock %}
+
 {% block content %}
-<div class="container mt-4">
+<div class="container-fluid py-4">
+
+    <!-- =========================== -->
+    <!-- FILTROS DE DATA -->
+    <!-- =========================== -->
+    <form class="row g-3 mb-4" method="GET">
+        <div class="col-md-3">
+            <label class="form-label">Data início</label>
+            <input type="date" name="data_inicio" class="form-control" value="{{ data_inicio }}">
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">Data fim</label>
+            <input type="date" name="data_fim" class="form-control" value="{{ data_fim }}">
+        </div>
+        <div class="col-md-3 d-flex align-items-end">
+            <button class="btn btn-primary w-100">Filtrar</button>
+        </div>
+    </form>
 
     <!-- =========================== -->
     <!-- TOTAIS NO TOPO -->
@@ -30,54 +49,51 @@
         <div class="col-md-3">
             <div class="card text-center p-3">
                 <h5>Lucro Total</h5>
-                <h3>
-                    R$ {{ "%.2f"|format((totais.receita or 0) - (totais.custo or 0)) }}
-                </h3>
+                <h3>R$ {{ "%.2f"|format((totais.receita or 0) - (totais.custo or 0)) }}</h3>
             </div>
         </div>
     </div>
 
     <!-- =========================== -->
-    <!-- GRÁFICOS (padronizados 2x2) -->
+    <!-- GRÁFICOS -->
     <!-- =========================== -->
-    <div class="row">
-
-        <!-- FATURAMENTO DIÁRIO -->
+    <div class="row g-4">
+        <!-- Faturamento diário -->
         <div class="col-md-6">
-            <div class="card mb-4">
+            <div class="card shadow-sm">
+                <div class="card-header">Faturamento diário</div>
                 <div class="card-body">
-                    <h3 class="card-title">Faturamento diário</h3>
-                    <canvas id="chartFaturamento" height="200"></canvas>
+                    <canvas id="chartFaturamento" style="height:260px;"></canvas>
                 </div>
             </div>
         </div>
 
-        <!-- QUANTIDADE -->
+        <!-- Quantidade diária -->
         <div class="col-md-6">
-            <div class="card mb-4">
+            <div class="card shadow-sm">
+                <div class="card-header">Quantidade vendida por dia</div>
                 <div class="card-body">
-                    <h3 class="card-title">Quantidade vendida por dia</h3>
-                    <canvas id="chartQuantidade" height="200"></canvas>
+                    <canvas id="chartQuantidade" style="height:260px;"></canvas>
                 </div>
             </div>
         </div>
 
-        <!-- LUCRO DIÁRIO -->
+        <!-- Lucro diário -->
         <div class="col-md-6">
-            <div class="card mb-4">
+            <div class="card shadow-sm">
+                <div class="card-header">Lucro diário</div>
                 <div class="card-body">
-                    <h3 class="card-title">Lucro diário</h3>
-                    <canvas id="chartLucro" height="200"></canvas>
+                    <canvas id="chartLucro" style="height:260px;"></canvas>
                 </div>
             </div>
         </div>
 
-        <!-- COMPARATIVO -->
+        <!-- Comparativo Mês atual x Mês anterior -->
         <div class="col-md-6">
-            <div class="card mb-4">
+            <div class="card shadow-sm">
+                <div class="card-header">Comparativo: Mês atual x Mês anterior</div>
                 <div class="card-body">
-                    <h3 class="card-title">Comparativo: Mês atual x Mês anterior</h3>
-                    <canvas id="chartComparativo" height="200"></canvas>
+                    <canvas id="chartComparativo" style="height:260px;"></canvas>
                 </div>
             </div>
         </div>
@@ -87,8 +103,7 @@
     <!-- LOTES IMPORTADOS -->
     <!-- =========================== -->
     <h3 class="mt-4 mb-3">Lotes importados</h3>
-
-    <table class="table table-striped">
+    <table class="table table-striped table-hover">
         <thead>
             <tr>
                 <th>Lote</th>
@@ -115,10 +130,9 @@
     </table>
 
     <!-- =========================== -->
-    <!-- LISTA DE VENDAS -->
+    <!-- LISTA DE VENDAS (100 por página) -->
     <!-- =========================== -->
     <h3 class="mt-5 mb-3">Lista de vendas</h3>
-
     <table class="table table-bordered table-hover">
         <thead>
             <tr>
@@ -148,28 +162,32 @@
         </tbody>
     </table>
 
+    <!-- PAGINAÇÃO -->
+    <nav aria-label="Vendas pagination">
+      <ul class="pagination justify-content-center">
+        {% for p in range(1, total_pages+1) %}
+        <li class="page-item {% if p==current_page %}active{% endif %}">
+          <a class="page-link" href="?data_inicio={{ data_inicio }}&data_fim={{ data_fim }}&page={{ p }}">{{ p }}</a>
+        </li>
+        {% endfor %}
+      </ul>
+    </nav>
+
 </div>
 
-
-<!-- ========================================== -->
-<!-- SCRIPTS DOS GRÁFICOS + DATALABELS PLUGIN -->
-<!-- ========================================== -->
+<!-- Chart.js + DataLabels -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
 
 <script>
-
-// Dados do backend
 const labels = {{ grafico_labels|tojson }};
 const dadosFaturamento = {{ grafico_faturamento|tojson }};
 const dadosQuantidade = {{ grafico_quantidade|tojson }};
 const dadosLucro = {{ grafico_lucro|tojson }};
-
 const labelsCmp = {{ grafico_cmp_labels|tojson }};
 const dadosAtual = {{ grafico_cmp_atual|tojson }};
 const dadosAnterior = {{ grafico_cmp_anterior|tojson }};
 
-// CONFIG BÁSICA (com DATALABELS)
 const baseConfig = {
     plugins: {
         datalabels: {
@@ -177,97 +195,49 @@ const baseConfig = {
             anchor: "end",
             align: "top",
             font: { weight: "bold", size: 11 },
-            formatter: value => value.toLocaleString("pt-BR")
-        }
+            formatter: value => Number(value).toLocaleString("pt-BR", {minimumFractionDigits: 2, maximumFractionDigits: 2})
+        },
+        legend: { display: true }
     },
     responsive: true,
     scales: {
-        x: { ticks: { maxRotation: 45, minRotation: 45 }},
+        x: { ticks: { maxRotation: 45, minRotation: 45 } },
         y: { beginAtZero: true }
     }
 };
 
-// FATURAMENTO
+// Faturamento
 new Chart(document.getElementById("chartFaturamento"), {
     type: "line",
-    data: {
-        labels,
-        datasets: [{
-            label: "Faturamento (R$)",
-            data: dadosFaturamento,
-            borderColor: "#3498db",
-            backgroundColor: "rgba(52,152,219,0.3)",
-            fill: true,
-            tension: 0.3,
-            pointRadius: 4
-        }]
-    },
+    data: { labels, datasets: [{ label: "Faturamento (R$)", data: dadosFaturamento, borderColor: "#3498db", backgroundColor: "rgba(52,152,219,0.3)", fill: true, tension: 0.3, pointRadius: 4 }]},
     options: baseConfig
 });
 
-// QUANTIDADE
+// Quantidade
 new Chart(document.getElementById("chartQuantidade"), {
     type: "bar",
-    data: {
-        labels,
-        datasets: [{
-            label: "Quantidade",
-            data: dadosQuantidade,
-            backgroundColor: "#1E90FF",
-            borderColor: "#1E90FF",
-            borderWidth: 1
-        }]
-    },
+    data: { labels, datasets: [{ label: "Quantidade", data: dadosQuantidade, backgroundColor: "#1E90FF", borderColor: "#1E90FF", borderWidth: 1 }]},
     options: baseConfig
 });
 
-// LUCRO
+// Lucro
 new Chart(document.getElementById("chartLucro"), {
     type: "line",
-    data: {
-        labels,
-        datasets: [{
-            label: "Lucro (R$)",
-            data: dadosLucro,
-            borderColor: "#2ecc71",
-            backgroundColor: "rgba(46,204,113,0.3)",
-            fill: true,
-            tension: 0.3,
-            pointRadius: 4
-        }]
-    },
+    data: { labels, datasets: [{ label: "Lucro (R$)", data: dadosLucro, borderColor: "#2ecc71", backgroundColor: "rgba(46,204,113,0.3)", fill: true, tension: 0.3, pointRadius: 4 }]},
     options: baseConfig
 });
 
-// COMPARATIVO
+// Comparativo Mês atual x Mês anterior
 new Chart(document.getElementById("chartComparativo"), {
     type: "line",
     data: {
         labels: labelsCmp,
         datasets: [
-            {
-                label: "Mês atual",
-                data: dadosAtual,
-                borderColor: "#3498db",
-                backgroundColor: "rgba(52,152,219,0.2)",
-                fill: true,
-                tension: 0.3,
-                pointRadius: 3
-            },
-            {
-                label: "Mês anterior",
-                data: dadosAnterior,
-                borderColor: "#9b59b6",
-                backgroundColor: "rgba(155,89,182,0.2)",
-                fill: true,
-                tension: 0.3,
-                pointRadius: 3
-            }
+            { label: "Mês atual", data: dadosAtual, borderColor: "#3498db", backgroundColor: "rgba(52,152,219,0.2)", fill: true, tension: 0.3, pointRadius: 3 },
+            { label: "Mês anterior", data: dadosAnterior, borderColor: "#9b59b6", backgroundColor: "rgba(155,89,182,0.2)", fill: true, tension: 0.3, pointRadius: 3 }
         ]
     },
     options: baseConfig
 });
-
 </script>
-
 {% endblock %}
