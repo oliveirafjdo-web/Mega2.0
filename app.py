@@ -1073,7 +1073,9 @@ def ajuste_estoque():
 
     flash("Ajuste de estoque registrado com custo médio atualizado!", "success")
     return redirect(url_for("estoque_view"))
-
+@app.route("/ajuste_estoque")
+def ajuste_estoque_view():
+    return render_template("ajuste_estoque.html")
 
 # ---------------- CONFIGURAÇÕES ----------------
 @app.route("/configuracoes", methods=["GET", "POST"])
