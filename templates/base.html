@@ -11,15 +11,86 @@ Vendas
 
 {% block content %}
 
-<!-- BOTÃO: Ajuste de Estoque -->
+<!-- BOTÃO DE AJUSTE DE ESTOQUE -->
 <div class="d-flex justify-content-end mb-4">
-    <a href="{{ url_for('ajuste_estoque_view') }}" class="btn btn-warning" style="border-radius: .7rem;">
+    <a href="{{ url_for('ajuste_estoque_view') }}" 
+       class="btn btn-warning fw-bold text-dark"
+       style="border-radius: .7rem; box-shadow: 0 3px 12px rgba(255,193,7,.35);">
         <i class="bi bi-pencil-square"></i> Ajuste de Estoque (Entradas / Saídas)
     </a>
 </div>
 
-<!-- TÍTULO -->
-<h3 class="text-soft mb-3">Lotes importados</h3>
+
+<!-- ================================ -->
+<!-- FILTROS DE DATA -->
+<!-- ================================ -->
+
+<div class="card-glass mb-4">
+    <div class="card-glass-header">
+        <div class="card-glass-title">
+            <i class="bi bi-funnel"></i>
+            Filtros de data
+        </div>
+    </div>
+
+    <form class="row g-3" method="GET">
+        <div class="col-md-3">
+            <label class="form-label">Data início</label>
+            <input type="date" name="data_inicio" class="form-control" value="{{ data_inicio }}">
+        </div>
+
+        <div class="col-md-3">
+            <label class="form-label">Data fim</label>
+            <input type="date" name="data_fim" class="form-control" value="{{ data_fim }}">
+        </div>
+
+        <div class="col-md-3 d-flex align-items-end">
+            <button class="btn btn-primary w-100">Filtrar</button>
+        </div>
+    </form>
+</div>
+
+
+<!-- ================================ -->
+<!-- TOTAIS SUPERIOR -->
+<!-- ================================ -->
+
+<div class="row g-3 mb-4">
+    <div class="col-md-3">
+        <div class="card-glass text-center">
+            <div class="stat-label">Total de Vendas</div>
+            <div class="stat-value">{{ totais.qtd }}</div>
+        </div>
+    </div>
+
+    <div class="col-md-3">
+        <div class="card-glass text-center">
+            <div class="stat-label">Faturamento Total</div>
+            <div class="stat-value">R$ {{ "%.2f"|format(totais.receita or 0) }}</div>
+        </div>
+    </div>
+
+    <div class="col-md-3">
+        <div class="card-glass text-center">
+            <div class="stat-label">Custo Total</div>
+            <div class="stat-value">R$ {{ "%.2f"|format(totais.custo or 0) }}</div>
+        </div>
+    </div>
+
+    <div class="col-md-3">
+        <div class="card-glass text-center">
+            <div class="stat-label">Lucro Total</div>
+            <div class="stat-value">R$ {{ "%.2f"|format((totais.receita or 0)-(totais.custo or 0)) }}</div>
+        </div>
+    </div>
+</div>
+
+
+<!-- ================================ -->
+<!-- LOTES IMPORTADOS -->
+<!-- ================================ -->
+
+<h3 class="text-soft mt-4 mb-3">Lotes importados</h3>
 
 {% if lotes_por_data %}
   {% for data, lotes in lotes_por_data.items() %}
@@ -32,7 +103,7 @@ Vendas
       </div>
 
       <div class="table-responsive">
-        <table class="table table-hover table-dark table-sm">
+        <table class="table table-dark table-hover table-sm">
           <thead>
             <tr>
               <th>Produto</th>
@@ -67,5 +138,6 @@ Vendas
 {% else %}
   <p class="text-soft">Nenhum lote importado até o momento.</p>
 {% endif %}
+
 
 {% endblock %}
