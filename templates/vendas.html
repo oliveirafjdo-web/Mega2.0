@@ -100,6 +100,15 @@
     </div>
 
     <!-- =========================== -->
+    <!-- BOTÃO DE AJUSTE DE ESTOQUE -->
+    <!-- =========================== -->
+    <div class="d-flex justify-content-end mt-5">
+        <a href="/ajuste_estoque" class="btn btn-warning btn-lg">
+            Ajuste de Estoque (Entradas / Saídas)
+        </a>
+    </div>
+
+    <!-- =========================== -->
     <!-- LOTES IMPORTADOS -->
     <!-- =========================== -->
     <h3 class="mt-4 mb-3">Lotes importados</h3>
@@ -167,7 +176,8 @@
       <ul class="pagination justify-content-center">
         {% for p in range(1, total_pages+1) %}
         <li class="page-item {% if p==current_page %}active{% endif %}">
-          <a class="page-link" href="?data_inicio={{ data_inicio }}&data_fim={{ data_fim }}&page={{ p }}">{{ p }}</a>
+          <a class="page-link"
+            href="?data_inicio={{ data_inicio }}&data_fim={{ data_fim }}&page={{ p }}">{{ p }}</a>
         </li>
         {% endfor %}
       </ul>
@@ -195,7 +205,10 @@ const baseConfig = {
             anchor: "end",
             align: "top",
             font: { weight: "bold", size: 11 },
-            formatter: value => Number(value).toLocaleString("pt-BR", {minimumFractionDigits: 2, maximumFractionDigits: 2})
+            formatter: value => Number(value).toLocaleString("pt-BR", {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            })
         },
         legend: { display: true }
     },
@@ -209,21 +222,52 @@ const baseConfig = {
 // Faturamento
 new Chart(document.getElementById("chartFaturamento"), {
     type: "line",
-    data: { labels, datasets: [{ label: "Faturamento (R$)", data: dadosFaturamento, borderColor: "#3498db", backgroundColor: "rgba(52,152,219,0.3)", fill: true, tension: 0.3, pointRadius: 4 }]},
+    data: {
+        labels,
+        datasets: [{
+            label: "Faturamento (R$)",
+            data: dadosFaturamento,
+            borderColor: "#3498db",
+            backgroundColor: "rgba(52,152,219,0.3)",
+            fill: true,
+            tension: 0.3,
+            pointRadius: 4
+        }]
+    },
     options: baseConfig
 });
 
 // Quantidade
 new Chart(document.getElementById("chartQuantidade"), {
     type: "bar",
-    data: { labels, datasets: [{ label: "Quantidade", data: dadosQuantidade, backgroundColor: "#1E90FF", borderColor: "#1E90FF", borderWidth: 1 }]},
+    data: {
+        labels,
+        datasets: [{
+            label: "Quantidade",
+            data: dadosQuantidade,
+            backgroundColor: "#1E90FF",
+            borderColor: "#1E90FF",
+            borderWidth: 1
+        }]
+    },
     options: baseConfig
 });
 
 // Lucro
 new Chart(document.getElementById("chartLucro"), {
     type: "line",
-    data: { labels, datasets: [{ label: "Lucro (R$)", data: dadosLucro, borderColor: "#2ecc71", backgroundColor: "rgba(46,204,113,0.3)", fill: true, tension: 0.3, pointRadius: 4 }]},
+    data: {
+        labels,
+        datasets: [{
+            label: "Lucro (R$)",
+            data: dadosLucro,
+            borderColor: "#2ecc71",
+            backgroundColor: "rgba(46,204,113,0.3)",
+            fill: true,
+            tension: 0.3,
+            pointRadius: 4
+        }]
+    },
     options: baseConfig
 });
 
@@ -233,11 +277,28 @@ new Chart(document.getElementById("chartComparativo"), {
     data: {
         labels: labelsCmp,
         datasets: [
-            { label: "Mês atual", data: dadosAtual, borderColor: "#3498db", backgroundColor: "rgba(52,152,219,0.2)", fill: true, tension: 0.3, pointRadius: 3 },
-            { label: "Mês anterior", data: dadosAnterior, borderColor: "#9b59b6", backgroundColor: "rgba(155,89,182,0.2)", fill: true, tension: 0.3, pointRadius: 3 }
+            {
+                label: "Mês atual",
+                data: dadosAtual,
+                borderColor: "#3498db",
+                backgroundColor: "rgba(52,152,219,0.2)",
+                fill: true,
+                tension: 0.3,
+                pointRadius: 3
+            },
+            {
+                label: "Mês anterior",
+                data: dadosAnterior,
+                borderColor: "#9b59b6",
+                backgroundColor: "rgba(155,89,182,0.2)",
+                fill: true,
+                tension: 0.3,
+                pointRadius: 3
+            }
         ]
     },
     options: baseConfig
 });
 </script>
+
 {% endblock %}
