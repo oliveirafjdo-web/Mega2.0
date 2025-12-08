@@ -5,6 +5,15 @@
 <div class="container-fluid py-4">
 
     <!-- =========================== -->
+    <!-- BOTÃO DE AJUSTE DE ESTOQUE -->
+    <!-- =========================== -->
+    <div class="d-flex justify-content-end mb-4">
+        <a href="/ajuste_estoque" class="btn btn-warning btn-lg">
+            Ajuste de Estoque (Entradas / Saídas)
+        </a>
+    </div>
+
+    <!-- =========================== -->
     <!-- FILTROS DE DATA -->
     <!-- =========================== -->
     <form class="row g-3 mb-4" method="GET">
@@ -58,7 +67,6 @@
     <!-- GRÁFICOS -->
     <!-- =========================== -->
     <div class="row g-4">
-        <!-- Faturamento diário -->
         <div class="col-md-6">
             <div class="card shadow-sm">
                 <div class="card-header">Faturamento diário</div>
@@ -68,7 +76,6 @@
             </div>
         </div>
 
-        <!-- Quantidade diária -->
         <div class="col-md-6">
             <div class="card shadow-sm">
                 <div class="card-header">Quantidade vendida por dia</div>
@@ -78,7 +85,6 @@
             </div>
         </div>
 
-        <!-- Lucro diário -->
         <div class="col-md-6">
             <div class="card shadow-sm">
                 <div class="card-header">Lucro diário</div>
@@ -88,7 +94,6 @@
             </div>
         </div>
 
-        <!-- Comparativo Mês atual x Mês anterior -->
         <div class="col-md-6">
             <div class="card shadow-sm">
                 <div class="card-header">Comparativo: Mês atual x Mês anterior</div>
@@ -97,15 +102,6 @@
                 </div>
             </div>
         </div>
-    </div>
-
-    <!-- =========================== -->
-    <!-- BOTÃO DE AJUSTE DE ESTOQUE -->
-    <!-- =========================== -->
-    <div class="d-flex justify-content-end mt-5">
-        <a href="/ajuste_estoque" class="btn btn-warning btn-lg">
-            Ajuste de Estoque (Entradas / Saídas)
-        </a>
     </div>
 
     <!-- =========================== -->
@@ -139,7 +135,7 @@
     </table>
 
     <!-- =========================== -->
-    <!-- LISTA DE VENDAS (100 por página) -->
+    <!-- LISTA DE VENDAS -->
     <!-- =========================== -->
     <h3 class="mt-5 mb-3">Lista de vendas</h3>
     <table class="table table-bordered table-hover">
@@ -219,82 +215,37 @@ const baseConfig = {
     }
 };
 
-// Faturamento
 new Chart(document.getElementById("chartFaturamento"), {
     type: "line",
-    data: {
-        labels,
-        datasets: [{
-            label: "Faturamento (R$)",
-            data: dadosFaturamento,
-            borderColor: "#3498db",
-            backgroundColor: "rgba(52,152,219,0.3)",
-            fill: true,
-            tension: 0.3,
-            pointRadius: 4
-        }]
-    },
+    data: { labels, datasets: [{ label: "Faturamento (R$)", data: dadosFaturamento, borderColor: "#3498db",
+        backgroundColor: "rgba(52,152,219,0.3)", fill: true, tension: 0.3, pointRadius: 4 }]},
     options: baseConfig
 });
 
-// Quantidade
 new Chart(document.getElementById("chartQuantidade"), {
     type: "bar",
-    data: {
-        labels,
-        datasets: [{
-            label: "Quantidade",
-            data: dadosQuantidade,
-            backgroundColor: "#1E90FF",
-            borderColor: "#1E90FF",
-            borderWidth: 1
-        }]
-    },
+    data: { labels, datasets: [{ label: "Quantidade", data: dadosQuantidade, backgroundColor: "#1E90FF",
+        borderColor: "#1E90FF", borderWidth: 1 }]},
     options: baseConfig
 });
 
-// Lucro
 new Chart(document.getElementById("chartLucro"), {
     type: "line",
-    data: {
-        labels,
-        datasets: [{
-            label: "Lucro (R$)",
-            data: dadosLucro,
-            borderColor: "#2ecc71",
-            backgroundColor: "rgba(46,204,113,0.3)",
-            fill: true,
-            tension: 0.3,
-            pointRadius: 4
-        }]
-    },
+    data: { labels, datasets: [{ label: "Lucro (R$)", data: dadosLucro, borderColor: "#2ecc71",
+        backgroundColor: "rgba(46,204,113,0.3)", fill: true, tension: 0.3, pointRadius: 4 }]},
     options: baseConfig
 });
 
-// Comparativo Mês atual x Mês anterior
 new Chart(document.getElementById("chartComparativo"), {
     type: "line",
     data: {
         labels: labelsCmp,
         datasets: [
-            {
-                label: "Mês atual",
-                data: dadosAtual,
-                borderColor: "#3498db",
-                backgroundColor: "rgba(52,152,219,0.2)",
-                fill: true,
-                tension: 0.3,
-                pointRadius: 3
-            },
-            {
-                label: "Mês anterior",
-                data: dadosAnterior,
-                borderColor: "#9b59b6",
-                backgroundColor: "rgba(155,89,182,0.2)",
-                fill: true,
-                tension: 0.3,
-                pointRadius: 3
-            }
+            { label: "Mês atual", data: dadosAtual, borderColor: "#3498db",
+              backgroundColor: "rgba(52,152,219,0.2)", fill: true, tension: .3, pointRadius: 3 },
+
+            { label: "Mês anterior", data: dadosAnterior, borderColor: "#9b59b6",
+              backgroundColor: "rgba(155,89,182,0.2)", fill: true, tension: .3, pointRadius: 3 }
         ]
     },
     options: baseConfig
