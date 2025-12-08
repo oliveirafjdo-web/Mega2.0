@@ -36,10 +36,9 @@
 
 <div class="container mx-auto px-4 py-6">
 
-    <!-- TÍTULO -->
     <h1 class="text-3xl font-bold mb-6 text-white">Estoque e Reposição</h1>
 
-    <!-- ================= CARDS SUPERIORES ================= -->
+    <!-- ================= CARDS ================= -->
     <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
 
         <div class="card bg-base-100 shadow">
@@ -82,20 +81,16 @@
 
     </div>
 
-    <!-- ================= BUSCA + FILTROS + AJUSTE ================= -->
+    <!-- ================= BUSCA / FILTROS / AJUSTE ================= -->
     <div class="flex flex-col md:flex-row gap-4 mb-4 items-start md:items-center justify-between">
 
-        <!-- Busca + filtros agrupados -->
         <div class="flex flex-col md:flex-row gap-4 w-full">
-
-            <!-- Busca por nome / SKU -->
             <input id="filtroBusca"
-                type="text"
-                placeholder="Filtrar por nome ou SKU..."
-                class="input input-bordered w-full md:w-80"
-                onkeyup="filtrarTabela()">
+                   type="text"
+                   placeholder="Filtrar por nome ou SKU..."
+                   class="input input-bordered w-full md:w-80"
+                   onkeyup="filtrarTabela()">
 
-            <!-- Botões de filtro -->
             <div class="flex flex-wrap gap-2">
                 <button class="btn btn-sm" onclick="filtrarStatus('todos')">Todos</button>
                 <button class="btn btn-sm btn-success" onclick="filtrarStatus('ok')">OK</button>
@@ -105,7 +100,7 @@
             </div>
         </div>
 
-        <!-- Botão de ajuste de estoque (abre modal) -->
+        <!-- BOTÃO AJUSTAR ESTOQUE -->
         <div>
             <button
                 type="button"
@@ -141,10 +136,7 @@
             <tbody>
 
             {% for p in produtos %}
-                {# cálculo da sugestão de compra para o mês:
-                   usa a média diária * 30 (demanda mensal pelos últimos 30 dias)
-                   sugestão = max(0, demanda_mensal - estoque_atual)
-                #}
+
                 {% set media_diaria_val = p.media_diaria or 0 %}
                 {% set demanda_mensal = media_diaria_val * 30 %}
                 {% set estoque_atual_val = p.estoque_atual or 0 %}
@@ -154,7 +146,7 @@
                 {% endif %}
 
                 {% set status =
-                    'sem' if p.estoque_atual|int == 0 else
+                    'sem' if estoque_atual_val == 0 else
                     'repor' if p.precisa_repor else
                     'ok'
                 %}
@@ -175,39 +167,19 @@
                 >
                     <td class="px-3 py-2">{{ p.nome }}</td>
                     <td class="px-3 py-2">{{ p.sku }}</td>
-
                     <td class="px-3 py-2 text-right">{{ estoque_atual_val|int }}</td>
-
-                    <td class="px-3 py-2 text-right">
-                        {{ '%.0f'|format(sugestao_mes_val) }}
-                    </td>
-
-                    <td class="px-3 py-2 text-right">
-                        R$ {{ '%.2f'|format(p.custo_unitario or 0) }}
-                    </td>
-
-                    <td class="px-3 py-2 text-right">
-                        R$ {{ '%.2f'|format(p.custo_estoque or 0) }}
-                    </td>
-
-                    <!-- MÉDIA DIÁRIA COMO INTEIRO -->
-                    <td class="px-3 py-2 text-right">
-                        {{ '%.0f'|format(media_diaria_val) }}
-                    </td>
-
-                    <!-- DIAS DE COBERTURA COMO INTEIRO -->
+                    <td class="px-3 py-2 text-right">{{ '%.0f'|format(sugestao_mes_val) }}</td>
+                    <td class="px-3 py-2 text-right">R$ {{ '%.2f'|format(p.custo_unitario or 0) }}</td>
+                    <td class="px-3 py-2 text-right">R$ {{ '%.2f'|format(p.custo_estoque or 0) }}</td>
+                    <td class="px-3 py-2 text-right">{{ '%.0f'|format(media_diaria_val) }}</td>
                     <td class="px-3 py-2 text-right">
                         {% if p.dias_cobertura %}
                             {{ '%.0f'|format(p.dias_cobertura) }}
-                        {% else %}
-                            -
-                        {% endif %}
+                        {% else %}-{% endif %}
                     </td>
-
                     <td class="px-3 py-2 text-right text-emerald-600 font-semibold">
                         R$ {{ '%.2f'|format(p.lucro_potencial or 0) }}
                     </td>
-
                     <td class="px-3 py-2 text-right text-indigo-600 font-semibold">
                         {{ '%.2f'|format(p.retorno_percent or 0) }}%
                     </td>
@@ -222,8 +194,8 @@
                         {% endif %}
                     </td>
                 </tr>
-            {% endfor %}
 
+            {% endfor %}
             </tbody>
         </table>
     </div>
@@ -242,51 +214,33 @@
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
 
-      <!-- Usa a SUA rota ajuste_estoque (/estoque/ajuste) -->
       <form method="POST" action="{{ url_for('ajuste_estoque') }}">
         <div class="modal-body">
 
-          <!-- Tipo: entrada ou saída (como a rota espera) -->
           <label class="form-label text-sm">Tipo de movimentação</label>
           <select class="form-select" name="tipo" required>
-            <option value="entrada">Entrada (aumenta estoque)</option>
-            <option value="saida">Saída (diminui estoque)</option>
+            <option value="entrada">Entrada</option>
+            <option value="saida">Saída</option>
           </select>
 
-          <!-- Produto -->
           <label class="form-label text-sm mt-3">Produto</label>
           <select class="form-select" name="produto_id" required>
             {% for p in produtos %}
               <option value="{{ p.id }}">
-                {{ p.nome }} — Estoque atual: {{ p.estoque_atual or 0 }}
+                {{ p.sku }} — {{ p.nome }} — Estoque atual: {{ p.estoque_atual or 0 }}
               </option>
             {% endfor %}
           </select>
 
-          <!-- Quantidade -->
           <label class="form-label text-sm mt-3">Quantidade</label>
-          <input
-            type="number"
-            class="form-control"
-            name="quantidade"
-            required
-            min="1"
-          >
+          <input type="number" class="form-control" name="quantidade" required min="1">
 
-          <!-- Custo unitário -->
           <label class="form-label text-sm mt-3">
             Custo unitário (R$)
-            <span class="text-soft">(opcional, usado em ENTRADA para recalcular custo médio)</span>
+            <span class="text-soft">(opcional para recalcular custo médio)</span>
           </label>
-          <input
-            type="number"
-            step="0.01"
-            class="form-control"
-            name="custo_unitario"
-            placeholder="Ex: 25.90"
-          >
+          <input type="number" step="0.01" class="form-control" name="custo_unitario">
 
-          <!-- Observação -->
           <label class="form-label text-sm mt-3">Observação (opcional)</label>
           <textarea class="form-control" name="observacao" rows="2"></textarea>
 
@@ -294,9 +248,7 @@
 
         <div class="modal-footer" style="border-top:1px solid rgba(148,163,184,.25);">
           <button type="button" class="btn btn-outline-light btn-sm" data-bs-dismiss="modal">Cancelar</button>
-          <button type="submit" class="btn btn-primary btn-sm">
-            Confirmar ajuste
-          </button>
+          <button type="submit" class="btn btn-primary btn-sm">Confirmar ajuste</button>
         </div>
 
       </form>
@@ -304,75 +256,43 @@
   </div>
 </div>
 
-<!-- =================================== JS =================================== -->
+<!-- ================= JS ==================== -->
 <script>
-/* FILTRAR POR TEXTO (nome / SKU) */
 function filtrarTabela() {
     const busca = document.getElementById("filtroBusca").value.toLowerCase();
-    const linhas = document.querySelectorAll("#tabelaEstoque tbody tr");
-
-    linhas.forEach(l => {
+    document.querySelectorAll("#tabelaEstoque tbody tr").forEach(l => {
         const nome = l.dataset.nome || "";
         const sku = l.dataset.sku || "";
-        const match = nome.includes(busca) || sku.includes(busca);
-        l.style.display = match ? "" : "none";
+        l.style.display = nome.includes(busca) || sku.includes(busca) ? "" : "none";
     });
 }
 
-/* FILTRAR POR STATUS (OK / Repor / Sem) */
 function filtrarStatus(status) {
-    const linhas = document.querySelectorAll("#tabelaEstoque tbody tr");
-
-    linhas.forEach(l => {
-        if (status === "todos") {
-            l.style.display = "";
-        } else {
-            l.style.display = (l.dataset.status === status) ? "" : "none";
-        }
+    document.querySelectorAll("#tabelaEstoque tbody tr").forEach(l => {
+        l.style.display = status === "todos" || l.dataset.status === status ? "" : "none";
     });
-
-    // limpa busca de texto pra não confundir filtro
-    const busca = document.getElementById("filtroBusca");
-    if (busca) busca.value = "";
+    document.getElementById("filtroBusca").value = "";
 }
 
-/* FILTRAR APENAS ITENS COM SUGESTÃO DE COMPRA (para o mês) */
 function filtrarSugestaoMes() {
-    const linhas = document.querySelectorAll("#tabelaEstoque tbody tr");
-
-    linhas.forEach(l => {
+    document.querySelectorAll("#tabelaEstoque tbody tr").forEach(l => {
         const sug = parseFloat(l.dataset.sugestao_mes || "0");
         l.style.display = sug > 0 ? "" : "none";
     });
-
-    const busca = document.getElementById("filtroBusca");
-    if (busca) busca.value = "";
+    document.getElementById("filtroBusca").value = "";
 }
 
-/* ORDENAR POR ALGUMA COLUNA NUMÉRICA (sempre DESC) */
 function ordenarPor(coluna) {
     const tbody = document.querySelector("#tabelaEstoque tbody");
     const linhas = Array.from(tbody.querySelectorAll("tr"));
-
-    linhas.sort((a, b) => {
-        const v1 = parseFloat(a.dataset[coluna] || "0");
-        const v2 = parseFloat(b.dataset[coluna] || "0");
-        return v2 - v1; // desc
-    });
-
+    linhas.sort((a, b) => parseFloat(b.dataset[coluna] || 0) - parseFloat(a.dataset[coluna] || 0));
     linhas.forEach(l => tbody.appendChild(l));
 }
 
-/* Clique nos headers com class="sort" */
 document.addEventListener("DOMContentLoaded", () => {
     document.querySelectorAll("#tabelaEstoque thead .sort").forEach(header => {
-        header.addEventListener("click", () => {
-            const col = header.dataset.col;
-            ordenarPor(col);
-        });
+        header.addEventListener("click", () => ordenarPor(header.dataset.col));
     });
-
-    // Ordenar inicialmente por maior estoque
     ordenarPor("estoque");
 });
 </script>
