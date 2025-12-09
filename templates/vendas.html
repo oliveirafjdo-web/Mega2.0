@@ -5,13 +5,9 @@
 <div class="container-fluid py-4">
 
     <!-- =========================== -->
-    <!-- BOTÃO DE AJUSTE DE ESTOQUE -->
+    <!-- (BOTÃO DE AJUSTE REMOVIDO) -->
     <!-- =========================== -->
-    <div class="d-flex justify-content-end mb-4">
-        <a href="/ajuste_estoque" class="btn btn-warning btn-lg">
-            Ajuste de Estoque (Entradas / Saídas)
-        </a>
-    </div>
+    {# Botão de ajuste de estoque removido desta tela #}
 
     <!-- =========================== -->
     <!-- FILTROS DE DATA -->
@@ -186,6 +182,11 @@
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
 
 <script>
+// registra o plugin para garantir que os valores apareçam
+if (window.ChartDataLabels) {
+    Chart.register(ChartDataLabels);
+}
+
 const labels = {{ grafico_labels|tojson }};
 const dadosFaturamento = {{ grafico_faturamento|tojson }};
 const dadosQuantidade = {{ grafico_quantidade|tojson }};
@@ -197,14 +198,17 @@ const dadosAnterior = {{ grafico_cmp_anterior|tojson }};
 const baseConfig = {
     plugins: {
         datalabels: {
+            display: true,
             color: "#000",
             anchor: "end",
             align: "top",
             font: { weight: "bold", size: 11 },
-            formatter: value => Number(value).toLocaleString("pt-BR", {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2
-            })
+            formatter: value => {
+                if (value === null || value === undefined || Number(value) === 0) {
+                    return "";
+                }
+                return Number(value).toLocaleString("pt-BR");
+            }
         },
         legend: { display: true }
     },
@@ -217,22 +221,50 @@ const baseConfig = {
 
 new Chart(document.getElementById("chartFaturamento"), {
     type: "line",
-    data: { labels, datasets: [{ label: "Faturamento (R$)", data: dadosFaturamento, borderColor: "#3498db",
-        backgroundColor: "rgba(52,152,219,0.3)", fill: true, tension: 0.3, pointRadius: 4 }]},
+    data: {
+        labels,
+        datasets: [{
+            label: "Faturamento (R$)",
+            data: dadosFaturamento,
+            borderColor: "#3498db",
+            backgroundColor: "rgba(52,152,219,0.3)",
+            fill: true,
+            tension: 0.3,
+            pointRadius: 4
+        }]
+    },
     options: baseConfig
 });
 
 new Chart(document.getElementById("chartQuantidade"), {
     type: "bar",
-    data: { labels, datasets: [{ label: "Quantidade", data: dadosQuantidade, backgroundColor: "#1E90FF",
-        borderColor: "#1E90FF", borderWidth: 1 }]},
+    data: {
+        labels,
+        datasets: [{
+            label: "Quantidade",
+            data: dadosQuantidade,
+            backgroundColor: "#1E90FF",
+            borderColor: "#1E90FF",
+            borderWidth: 1
+        }]
+    },
     options: baseConfig
 });
 
 new Chart(document.getElementById("chartLucro"), {
     type: "line",
-    data: { labels, datasets: [{ label: "Lucro (R$)", data: dadosLucro, borderColor: "#2ecc71",
-        backgroundColor: "rgba(46,204,113,0.3)", fill: true, tension: 0.3, pointRadius: 4 }]},
+    data: {
+        labels,
+        datasets: [{
+            label: "Lucro (R$)",
+            data: dadosLucro,
+            borderColor: "#2ecc71",
+            backgroundColor: "rgba(46,204,113,0.3)",
+            fill: true,
+            tension: 0.3,
+            pointRadius: 4
+        }]
+    },
     options: baseConfig
 });
 
@@ -241,11 +273,26 @@ new Chart(document.getElementById("chartComparativo"), {
     data: {
         labels: labelsCmp,
         datasets: [
-            { label: "Mês atual", data: dadosAtual, borderColor: "#3498db",
-              backgroundColor: "rgba(52,152,219,0.2)", fill: true, tension: .3, pointRadius: 3 },
-
-            { label: "Mês anterior", data: dadosAnterior, borderColor: "#9b59b6",
-              backgroundColor: "rgba(155,89,182,0.2)", fill: true, tension: .3, pointRadius: 3 }
+            {
+                label: "Mês atual",
+                data: dadosAtual,
+                borderColor: "#3498db",
+                backgroundColor: "rgba(52,152,219,0.2)",
+                fill: true,
+                tension: 0.3,
+                pointRadius: 3,
+                borderWidth: 2
+            },
+            {
+                label: "Mês anterior",
+                data: dadosAnterior,
+                borderColor: "#ff0000",
+                backgroundColor: "rgba(255,0,0,0.20)",
+                fill: true,
+                tension: 0.3,
+                pointRadius: 3,
+                borderWidth: 3
+            }
         ]
     },
     options: baseConfig
