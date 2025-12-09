@@ -2,13 +2,11 @@
 {% block content %}
 
 <style>
-    /* Texto da tabela bem legível */
     #tabelaEstoque td,
     #tabelaEstoque th {
         color: #000 !important;
     }
 
-    /* Linhas coloridas por situação */
     .linha-sem-estoque {
         background: #fee2e2 !important;
     }
@@ -17,7 +15,6 @@
         background: #fef9c3 !important;
     }
 
-    /* Badges de situação */
     .badge-ok {
         background: #22c55e;
         color: #052e16;
@@ -38,82 +35,78 @@
 
     <h1 class="text-3xl font-bold mb-6 text-white">Estoque e Reposição</h1>
 
-    <!-- ================= CARDS ================= -->
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+    <!-- ===================== CARDS SUPERIORES ===================== -->
+    <div class="row mb-5">
 
-        <div class="card bg-base-100 shadow">
-            <div class="card-body py-4 px-5">
-                <p class="text-xs uppercase tracking-wide text-slate-500">Total de Unidades</p>
-                <p class="text-2xl font-bold text-slate-900 mt-1">{{ total_unidades_estoque|int }}</p>
+        <div class="col-md-3 mb-3">
+            <div class="card text-center p-3 shadow">
+                <p class="text-xs text-muted mb-1">Total de Unidades</p>
+                <h3 class="mb-0">{{ total_unidades_estoque|int }}</h3>
             </div>
         </div>
 
-        <div class="card bg-base-100 shadow">
-            <div class="card-body py-4 px-5">
-                <p class="text-xs uppercase tracking-wide text-slate-500">Custo Total do Estoque</p>
-                <p class="text-2xl font-bold text-slate-900 mt-1">
+        <div class="col-md-3 mb-3">
+            <div class="card text-center p-3 shadow">
+                <p class="text-xs text-muted mb-1">Custo Total do Estoque</p>
+                <h3 class="mb-0">
                     R$ {{ '%.2f'|format(total_custo_estoque or 0) }}
-                </p>
+                </h3>
             </div>
         </div>
 
-        <div class="card bg-base-100 shadow">
-            <div class="card-body py-4 px-5">
-                <p class="text-xs uppercase tracking-wide text-slate-500">Receita Potencial</p>
-                <p class="text-2xl font-bold text-emerald-500 mt-1">
-                    R$ {{ '%.2f'|format(lucro_potencial_total or 0) }}
+        <div class="col-md-3 mb-3">
+            <div class="card text-center p-3 shadow">
+                <p class="text-xs text-muted mb-1">
+                    Receita Potencial <br><small>(Receita bruta - comissão ML)</small>
                 </p>
+                <h3 class="mb-0 text-primary">
+                    R$ {{ '%.2f'|format(receita_potencial_total or 0) }}
+                </h3>
             </div>
         </div>
 
-        <div class="card bg-base-100 shadow">
-            <div class="card-body py-4 px-5">
-                <p class="text-xs uppercase tracking-wide text-slate-500">Retorno Potencial</p>
-                <p class="text-2xl font-bold text-indigo-600 mt-1">
-                    {% if total_custo_estoque > 0 %}
-                        {{ '%.2f'|format((lucro_potencial_total / total_custo_estoque) * 100) }}%
-                    {% else %}
-                        0,00%
-                    {% endif %}
+        <div class="col-md-3 mb-3">
+            <div class="card text-center p-3 shadow">
+                <p class="text-xs text-muted mb-1">
+                    Lucro Estimado <br>
+                    <small>(Após custo, comissão, imposto e despesas)</small>
                 </p>
+                <h3 class="mb-1 text-success">
+                    R$ {{ '%.2f'|format(lucro_estimado_total or 0) }}
+                </h3>
+                <span class="text-soft">
+                    {{ '%.2f'|format(percentual_lucro_total or 0) }}% sobre o custo do estoque
+                </span>
             </div>
         </div>
 
     </div>
 
-    <!-- ================= BUSCA / FILTROS / AJUSTE ================= -->
-    <div class="flex flex-col md:flex-row gap-4 mb-4 items-start md:items-center justify-between">
+    <!-- ===================== BUSCA + FILTROS ===================== -->
+    <div class="flex flex-col md:flex-row gap-4 mb-4">
 
-        <div class="flex flex-col md:flex-row gap-4 w-full">
-            <input id="filtroBusca"
-                   type="text"
-                   placeholder="Filtrar por nome ou SKU..."
-                   class="input input-bordered w-full md:w-80"
-                   onkeyup="filtrarTabela()">
+        <input id="filtroBusca"
+               type="text"
+               placeholder="Filtrar por nome ou SKU..."
+               class="input input-bordered w-full md:w-80"
+               onkeyup="filtrarTabela()">
 
-            <div class="flex flex-wrap gap-2">
-                <button class="btn btn-sm" onclick="filtrarStatus('todos')">Todos</button>
-                <button class="btn btn-sm btn-success" onclick="filtrarStatus('ok')">OK</button>
-                <button class="btn btn-sm btn-warning" onclick="filtrarStatus('repor')">Repor</button>
-                <button class="btn btn-sm btn-error" onclick="filtrarStatus('sem')">Sem estoque</button>
-                <button class="btn btn-sm btn-info" onclick="filtrarSugestaoMes()">Sugestão mês</button>
-            </div>
-        </div>
-
-        <!-- BOTÃO AJUSTAR ESTOQUE -->
-        <div>
-            <button
-                type="button"
-                class="btn btn-sm btn-primary"
-                data-bs-toggle="modal"
-                data-bs-target="#modalAjusteEstoque">
-                Ajustar estoque
-            </button>
+        <div class="flex flex-wrap gap-2">
+            <button class="btn btn-sm" onclick="filtrarStatus('todos')">Todos</button>
+            <button class="btn btn-sm btn-success" onclick="filtrarStatus('ok')">OK</button>
+            <button class="btn btn-sm btn-warning" onclick="filtrarStatus('repor')">Repor</button>
+            <button class="btn btn-sm btn-error" onclick="filtrarStatus('sem')">Sem estoque</button>
+            <button class="btn btn-sm btn-info" onclick="filtrarSugestaoMes()">Sugestão mês</button>
         </div>
 
     </div>
 
-    <!-- ===================== TABELA ======================== -->
+    <!-- ===================== BOTÃO AJUSTAR ESTOQUE ===================== -->
+    <div class="mb-4">
+        <a href="/estoque/ajuste" class="btn btn-warning btn-lg">Ajustar estoque</a>
+    </div>
+
+    <!-- ===================== TABELA ===================== -->
     <div class="overflow-x-auto">
         <table id="tabelaEstoque" class="min-w-full text-sm border border-slate-300 bg-white">
 
@@ -136,7 +129,6 @@
             <tbody>
 
             {% for p in produtos %}
-
                 {% set media_diaria_val = p.media_diaria or 0 %}
                 {% set demanda_mensal = media_diaria_val * 30 %}
                 {% set estoque_atual_val = p.estoque_atual or 0 %}
@@ -146,7 +138,7 @@
                 {% endif %}
 
                 {% set status =
-                    'sem' if estoque_atual_val == 0 else
+                    'sem' if p.estoque_atual|int == 0 else
                     'repor' if p.precisa_repor else
                     'ok'
                 %}
@@ -175,7 +167,9 @@
                     <td class="px-3 py-2 text-right">
                         {% if p.dias_cobertura %}
                             {{ '%.0f'|format(p.dias_cobertura) }}
-                        {% else %}-{% endif %}
+                        {% else %}
+                            -
+                        {% endif %}
                     </td>
                     <td class="px-3 py-2 text-right text-emerald-600 font-semibold">
                         R$ {{ '%.2f'|format(p.lucro_potencial or 0) }}
@@ -183,101 +177,50 @@
                     <td class="px-3 py-2 text-right text-indigo-600 font-semibold">
                         {{ '%.2f'|format(p.retorno_percent or 0) }}%
                     </td>
-
                     <td class="px-3 py-2 text-center">
                         {% if status == 'sem' %}
-                            <span class="px-2 py-1 rounded-full text-xs font-semibold badge-sem">Sem estoque</span>
+                            <span class="badge-sem px-2 py-1 rounded-full text-xs">Sem estoque</span>
                         {% elif status == 'repor' %}
-                            <span class="px-2 py-1 rounded-full text-xs font-semibold badge-repor">Repor</span>
+                            <span class="badge-repor px-2 py-1 rounded-full text-xs">Repor</span>
                         {% else %}
-                            <span class="px-2 py-1 rounded-full text-xs font-semibold badge-ok">OK</span>
+                            <span class="badge-ok px-2 py-1 rounded-full text-xs">OK</span>
                         {% endif %}
                     </td>
                 </tr>
-
             {% endfor %}
+
             </tbody>
         </table>
     </div>
 
 </div>
 
-<!-- =============== MODAL DE AJUSTE DE ESTOQUE =================== -->
-<div class="modal fade" id="modalAjusteEstoque" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content" style="background:#0f172a; border:1px solid rgba(148,163,184,.35); color:#e5e7eb;">
-      
-      <div class="modal-header" style="border-bottom:1px solid rgba(148,163,184,.25);">
-        <h5 class="modal-title">
-          <i class="bi bi-stack"></i> Ajustar estoque
-        </h5>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-      </div>
-
-      <form method="POST" action="{{ url_for('ajuste_estoque') }}">
-        <div class="modal-body">
-
-          <label class="form-label text-sm">Tipo de movimentação</label>
-          <select class="form-select" name="tipo" required>
-            <option value="entrada">Entrada</option>
-            <option value="saida">Saída</option>
-          </select>
-
-          <label class="form-label text-sm mt-3">Produto</label>
-          <select class="form-select" name="produto_id" required>
-            {% for p in produtos %}
-              <option value="{{ p.id }}">
-                {{ p.sku }} — {{ p.nome }} — Estoque atual: {{ p.estoque_atual or 0 }}
-              </option>
-            {% endfor %}
-          </select>
-
-          <label class="form-label text-sm mt-3">Quantidade</label>
-          <input type="number" class="form-control" name="quantidade" required min="1">
-
-          <label class="form-label text-sm mt-3">
-            Custo unitário (R$)
-            <span class="text-soft">(opcional para recalcular custo médio)</span>
-          </label>
-          <input type="number" step="0.01" class="form-control" name="custo_unitario">
-
-          <label class="form-label text-sm mt-3">Observação (opcional)</label>
-          <textarea class="form-control" name="observacao" rows="2"></textarea>
-
-        </div>
-
-        <div class="modal-footer" style="border-top:1px solid rgba(148,163,184,.25);">
-          <button type="button" class="btn btn-outline-light btn-sm" data-bs-dismiss="modal">Cancelar</button>
-          <button type="submit" class="btn btn-primary btn-sm">Confirmar ajuste</button>
-        </div>
-
-      </form>
-    </div>
-  </div>
-</div>
-
-<!-- ================= JS ==================== -->
+<!-- ===================== SCRIPTS ===================== -->
 <script>
 function filtrarTabela() {
     const busca = document.getElementById("filtroBusca").value.toLowerCase();
-    document.querySelectorAll("#tabelaEstoque tbody tr").forEach(l => {
+    const linhas = document.querySelectorAll("#tabelaEstoque tbody tr");
+
+    linhas.forEach(l => {
         const nome = l.dataset.nome || "";
         const sku = l.dataset.sku || "";
-        l.style.display = nome.includes(busca) || sku.includes(busca) ? "" : "none";
+        l.style.display = (nome.includes(busca) || sku.includes(busca)) ? "" : "none";
     });
 }
 
 function filtrarStatus(status) {
-    document.querySelectorAll("#tabelaEstoque tbody tr").forEach(l => {
-        l.style.display = status === "todos" || l.dataset.status === status ? "" : "none";
+    const linhas = document.querySelectorAll("#tabelaEstoque tbody tr");
+    linhas.forEach(l => {
+        l.style.display = (status === "todos" || l.dataset.status === status) ? "" : "none";
     });
     document.getElementById("filtroBusca").value = "";
 }
 
 function filtrarSugestaoMes() {
-    document.querySelectorAll("#tabelaEstoque tbody tr").forEach(l => {
-        const sug = parseFloat(l.dataset.sugestao_mes || "0");
-        l.style.display = sug > 0 ? "" : "none";
+    const linhas = document.querySelectorAll("#tabelaEstoque tbody tr");
+    linhas.forEach(l => {
+        const s = parseFloat(l.dataset.sugestao_mes || "0");
+        l.style.display = s > 0 ? "" : "none";
     });
     document.getElementById("filtroBusca").value = "";
 }
@@ -285,14 +228,21 @@ function filtrarSugestaoMes() {
 function ordenarPor(coluna) {
     const tbody = document.querySelector("#tabelaEstoque tbody");
     const linhas = Array.from(tbody.querySelectorAll("tr"));
-    linhas.sort((a, b) => parseFloat(b.dataset[coluna] || 0) - parseFloat(a.dataset[coluna] || 0));
+
+    linhas.sort((a, b) => {
+        const v1 = parseFloat(a.dataset[coluna] || "0");
+        const v2 = parseFloat(b.dataset[coluna] || "0");
+        return v2 - v1;
+    });
+
     linhas.forEach(l => tbody.appendChild(l));
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-    document.querySelectorAll("#tabelaEstoque thead .sort").forEach(header => {
-        header.addEventListener("click", () => ordenarPor(header.dataset.col));
+    document.querySelectorAll("#tabelaEstoque thead .sort").forEach(head => {
+        head.addEventListener("click", () => ordenarPor(head.dataset.col));
     });
+
     ordenarPor("estoque");
 });
 </script>
