@@ -760,8 +760,6 @@ def exportar_template():
 
 
 # ---------------- ESTOQUE / AJUSTES ----------------
-def estoque_view():
-
 # GET – formulário de ajuste
 @app.route("/estoque/ajuste", methods=["GET"])
 def ajuste_estoque_form():
