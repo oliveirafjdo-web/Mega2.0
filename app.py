@@ -314,7 +314,7 @@ def dashboard():
             - despesas_total
         )
 
-        receita_liquida_total = receita_total - comissao_total - imposto_total - despesas_total
+        receita_liquida_total = receita_total - comissao_total 
 
         margem_liquida_percent = (
             (lucro_liquido_total / receita_total) * 100.0
