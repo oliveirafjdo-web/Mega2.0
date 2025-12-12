@@ -98,6 +98,29 @@
                 </div>
             </div>
         </div>
+
+        <!-- =========================== -->
+        <!-- NOVO: PIZZA POR ESTADO (UF) -->
+        <!-- =========================== -->
+        <div class="col-md-6">
+            <div class="card shadow-sm">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <span>Vendas por Estado (UF)</span>
+                    <small class="text-muted">Baseado no período filtrado</small>
+                </div>
+                <div class="card-body">
+                    {% if pizza_estados_labels and pizza_estados_valores %}
+                        <canvas id="chartPizzaEstados" style="height:260px;"></canvas>
+                    {% else %}
+                        <div class="text-muted">
+                            Nenhum dado de UF encontrado. Verifique se sua tabela <b>vendas</b> possui coluna
+                            <b>uf/estado</b> (ou ajuste o nome no backend).
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
     </div>
 
     <!-- =========================== -->
@@ -194,6 +217,10 @@ const dadosLucro = {{ grafico_lucro|tojson }};
 const labelsCmp = {{ grafico_cmp_labels|tojson }};
 const dadosAtual = {{ grafico_cmp_atual|tojson }};
 const dadosAnterior = {{ grafico_cmp_anterior|tojson }};
+
+// NOVO: Pizza por estado
+const pizzaEstadosLabels = {{ pizza_estados_labels|default([])|tojson }};
+const pizzaEstadosValores = {{ pizza_estados_valores|default([])|tojson }};
 
 const baseConfig = {
     plugins: {
@@ -297,6 +324,41 @@ new Chart(document.getElementById("chartComparativo"), {
     },
     options: baseConfig
 });
+
+// ===========================
+// NOVO: DOUGHNUT por Estado (UF)
+// ===========================
+const canvasPizza = document.getElementById("chartPizzaEstados");
+if (canvasPizza && pizzaEstadosLabels.length > 0) {
+    new Chart(canvasPizza, {
+        type: "doughnut",
+        data: {
+            labels: pizzaEstadosLabels,
+            datasets: [{
+                data: pizzaEstadosValores
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: { display: true, position: "bottom" },
+                datalabels: {
+                    display: true,
+                    color: "#000",
+                    font: { weight: "bold", size: 11 },
+                    formatter: (value, ctx) => {
+                        const total = (ctx.chart.data.datasets[0].data || []).reduce((a, b) => a + Number(b || 0), 0);
+                        if (!total || !value) return "";
+                        const pct = (Number(value) / total) * 100;
+                        // mostra % (e evita poluir se for muito pequeno)
+                        if (pct < 3) return "";
+                        return pct.toFixed(1).replace(".", ",") + "%";
+                    }
+                }
+            }
+        }
+    });
+}
 </script>
 
 {% endblock %}
