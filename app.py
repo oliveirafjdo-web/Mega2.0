@@ -480,6 +480,10 @@ def lista_vendas():
     if not data_fim:
         data_fim = default_data_fim
 
+    # defaults para o gráfico pizza (para não quebrar template)
+    pizza_estados_labels = []
+    pizza_estados_valores = []
+
     with engine.connect() as conn:
         # =======================
         # CONSULTA VENDAS (RESPEITA FILTRO DA TELA)
@@ -507,7 +511,7 @@ def lista_vendas():
 
         # Paginação
         total_vendas = len(vendas_all)
-        total_pages = ceil(total_vendas / VENDAS_POR_PAGINA)
+        total_pages = ceil(total_vendas / VENDAS_POR_PAGINA) if total_vendas else 1
         start = (page - 1) * VENDAS_POR_PAGINA
         end = start + VENDAS_POR_PAGINA
         vendas_rows = vendas_all[start:end]
@@ -532,6 +536,36 @@ def lista_vendas():
             select(produtos.c.id, produtos.c.nome).order_by(produtos.c.nome)
         ).mappings().all()
 
+        # =======================
+        # GRÁFICO PIZZA POR ESTADO (UF) - RESPEITA FILTRO
+        # =======================
+        # tenta achar uma coluna de UF/Estado na sua tabela vendas
+        col_uf = None
+        for candidate in ["uf", "estado", "estado_uf", "uf_cliente", "estado_cliente"]:
+            if candidate in vendas.c:
+                col_uf = vendas.c[candidate]
+                break
+
+        if col_uf is not None:
+            query_estados = select(
+                func.coalesce(col_uf, "N/I").label("uf"),
+                func.coalesce(func.sum(vendas.c.receita_total), 0).label("total_receita"),
+                func.count().label("qtd_vendas"),
+            ).where(
+                vendas.c.data_venda >= data_inicio,
+                vendas.c.data_venda <= data_fim + "T23:59:59"
+            ).group_by(func.coalesce(col_uf, "N/I")) \
+             .order_by(func.coalesce(func.sum(vendas.c.receita_total), 0).desc())
+
+            estados_rows = conn.execute(query_estados).mappings().all()
+
+            # ✅ Pizza por Receita (padrão)
+            pizza_estados_labels = [r["uf"] for r in estados_rows]
+            pizza_estados_valores = [float(r["total_receita"] or 0) for r in estados_rows]
+
+            # Se quiser por quantidade, use isto no lugar:
+            # pizza_estados_valores = [int(r["qtd_vendas"] or 0) for r in estados_rows]
+
     # =======================
     # GRÁFICOS 30 DIAS (FATURAMENTO / QTD / LUCRO)
     # =======================
@@ -543,7 +577,7 @@ def lista_vendas():
         if not v["data_venda"]:
             continue
         try:
-            dt = datetime.fromisoformat(v["data_venda"]).date()
+            dt = datetime.fromisoformat(str(v["data_venda"])).date()
         except Exception:
             continue
 
@@ -571,10 +605,8 @@ def lista_vendas():
     # COMPARATIVO MÊS ATUAL x MÊS ANTERIOR
     # (IGNORA O FILTRO DA TELA E BUSCA DIRETO NO BANCO)
     # =========================
-    # Início do mês atual
     inicio_mes_atual = hoje.replace(day=1)
 
-    # Mês anterior
     if inicio_mes_atual.month == 1:
         ano_ant = inicio_mes_atual.year - 1
         mes_ant = 12
@@ -583,21 +615,18 @@ def lista_vendas():
         mes_ant = inicio_mes_atual.month - 1
     inicio_mes_anterior = date(ano_ant, mes_ant, 1)
 
-    # Último dia do mês atual (até hoje)
     if inicio_mes_atual.month == 12:
         primeiro_prox_mes_atual = date(inicio_mes_atual.year + 1, 1, 1)
     else:
         primeiro_prox_mes_atual = date(inicio_mes_atual.year, inicio_mes_atual.month + 1, 1)
     fim_mes_atual = min(hoje, primeiro_prox_mes_atual - timedelta(days=1))
 
-    # Último dia do mês anterior
     if mes_ant == 12:
         primeiro_mes_pos_ant = date(ano_ant + 1, 1, 1)
     else:
         primeiro_mes_pos_ant = date(ano_ant, mes_ant + 1, 1)
     fim_mes_anterior = primeiro_mes_pos_ant - timedelta(days=1)
 
-    # Busca todas as vendas dos dois meses
     with engine.connect() as conn_cmp:
         rows_cmp = conn_cmp.execute(
             select(
@@ -619,6 +648,7 @@ def lista_vendas():
         try:
             dt = datetime.fromisoformat(str(data_raw)).date()
         except Exception:
+            # se você já tem parse_data_venda no projeto, mantém
             dt_parsed = parse_data_venda(data_raw)
             if not dt_parsed:
                 continue
@@ -631,7 +661,6 @@ def lista_vendas():
         elif inicio_mes_anterior <= dt <= fim_mes_anterior:
             faturamento_mes_anterior[dt] = faturamento_mes_anterior.get(dt, 0) + receita
 
-    # Monta lista de dias do mês atual (1 até hoje/último dia)
     dias_mes_atual = []
     d = inicio_mes_atual
     while d <= fim_mes_atual:
@@ -641,7 +670,6 @@ def lista_vendas():
     grafico_cmp_labels = [d.isoformat() for d in dias_mes_atual]
     grafico_cmp_atual = [faturamento_mes_atual.get(d, 0) for d in dias_mes_atual]
 
-    # Para cada dia do mês atual, pegamos o dia equivalente do mês anterior (1 com 1, 2 com 2...)
     grafico_cmp_anterior = []
     for i, _d in enumerate(dias_mes_atual):
         dia_ant = inicio_mes_anterior + timedelta(days=i)
@@ -651,9 +679,9 @@ def lista_vendas():
     # TOTAIS (RESPEITAM O FILTRO DA TELA)
     # =========================
     totais = {
-        "qtd": sum(q["quantidade"] for q in vendas_all),
-        "receita": sum(q["receita_total"] for q in vendas_all),
-        "custo": sum(q["custo_total"] for q in vendas_all),
+        "qtd": sum(float(q.get("quantidade") or 0) for q in vendas_all),
+        "receita": sum(float(q.get("receita_total") or 0) for q in vendas_all),
+        "custo": sum(float(q.get("custo_total") or 0) for q in vendas_all),
     }
 
     return render_template(
@@ -671,6 +699,8 @@ def lista_vendas():
         grafico_cmp_labels=grafico_cmp_labels,
         grafico_cmp_atual=grafico_cmp_atual,
         grafico_cmp_anterior=grafico_cmp_anterior,
+        pizza_estados_labels=pizza_estados_labels,
+        pizza_estados_valores=pizza_estados_valores,
         total_pages=total_pages,
         current_page=page
     )
