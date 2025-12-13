@@ -86,7 +86,7 @@ configuracoes = Table(
     metadata,
     Column("id", Integer, primary_key=True),
     Column("imposto_percent", Float, nullable=False, server_default="0"),
-    
+)   
 
 finance_transactions = Table(
     "finance_transactions",
