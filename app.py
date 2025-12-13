@@ -1,13 +1,15 @@
 import os
 from datetime import datetime, date, timedelta
 from io import BytesIO
+from uuid import uuid4
+from sqlalchemy import text
 
 from flask import Flask, render_template, request, redirect, url_for, flash, send_file
 from werkzeug.utils import secure_filename
 
 from sqlalchemy import (
     create_engine, MetaData, Table, Column, Integer, String, Float,
-    ForeignKey, func, select, insert, update, delete, inspect, text
+    ForeignKey, func, select, insert, update, delete
 )
 from sqlalchemy.engine import Engine
 import pandas as pd
@@ -61,7 +63,6 @@ vendas = Table(
     Column("quantidade", Integer, nullable=False),
     Column("preco_venda_unitario", Float, nullable=False),
     Column("receita_total", Float, nullable=False),
-    Column("comissao_ml", Float, nullable=False, server_default="0"),
     Column("custo_total", Float, nullable=False),
     Column("margem_contribuicao", Float, nullable=False),
     Column("origem", String(50)),
@@ -89,43 +90,33 @@ configuracoes = Table(
     Column("despesas_percent", Float, nullable=False, server_default="0"),
 )
 
+
 finance_transactions = Table(
     "finance_transactions",
     metadata,
     Column("id", Integer, primary_key=True),
     Column("data_lancamento", String(50), nullable=False),
-    Column("tipo", String(50), nullable=False),  # OPENING_BALANCE, MP_NET, REFUND, WITHDRAWAL, ADJUSTMENT
+    Column("tipo", String(50), nullable=False),  # MP_NET, WITHDRAWAL, REFUND, OPENING_BALANCE, ADJUSTMENT
     Column("valor", Float, nullable=False),
-    Column("origem", String(50), nullable=False, server_default="manual"),  # mercado_pago | manual
-    Column("external_id_mp", String(120), unique=True),  # ID DA TRANSAÇÃO NO MERCADO PAGO
+    Column("origem", String(50), nullable=False, server_default="manual"),  # mercado_pago/manual
+    Column("external_id_mp", String(120), unique=True),
+    Column("batch_id", String(40)),
     Column("descricao", String(255)),
     Column("criado_em", String(50)),
 )
 
 
-
 def init_db():
-    """Cria as tabelas se não existirem e garante 1 linha em configuracoes.
-    Também aplica pequenos 'migrations' (ALTER TABLE) quando necessário.
-    """
+    """Cria as tabelas se não existirem e garante 1 linha em configuracoes."""
     metadata.create_all(engine)
-
     with engine.begin() as conn:
-        # garante 1 linha em configuracoes
-        row = conn.execute(select(configuracoes.c.id).limit(1)).first()
+        row = conn.execute(
+            select(configuracoes.c.id).limit(1)
+        ).first()
         if not row:
-            conn.execute(insert(configuracoes).values(id=1, imposto_percent=0.0, despesas_percent=0.0))
-
-        # ---- migrations leves (compatível com SQLite/Postgres) ----
-        insp = inspect(engine)
-
-        # vendas.comissao_ml
-        try:
-            cols = [c["name"] for c in insp.get_columns("vendas")]
-            if "comissao_ml" not in cols:
-                conn.execute(text('ALTER TABLE vendas ADD COLUMN comissao_ml FLOAT DEFAULT 0'))
-        except Exception:
-            pass
+            conn.execute(
+                insert(configuracoes).values(id=1, imposto_percent=0.0, despesas_percent=0.0)
+            )
 
 
 # --------------------------------------------------------------------
@@ -247,7 +238,6 @@ def importar_vendas_ml(caminho_arquivo, engine: Engine):
                     quantidade=unidades,
                     preco_venda_unitario=preco_medio_venda,
                     receita_total=receita_total,
-                    comissao_ml=comissao_ml,
                     custo_total=custo_total,
                     margem_contribuicao=margem_contribuicao,
                     origem="Mercado Livre",
@@ -1319,348 +1309,270 @@ init_db()
 
 
 
+
 # --------------------------------------------------------------------
-# Financeiro / Mercado Pago (caixa) + Conciliação ML x MP
+# Financeiro + Mercado Pago + Conciliação
 # --------------------------------------------------------------------
 
-def _parse_iso_or_none(value):
-    if value is None or (isinstance(value, float) and value != value):
-        return None
-    if isinstance(value, (datetime, date)):
-        # se vier como datetime/date do pandas
-        if isinstance(value, date) and not isinstance(value, datetime):
-            return datetime.combine(value, datetime.min.time())
-        return value
+def _to_float(v):
     try:
-        s = str(value)
-        # tenta ISO completo com timezone
-        return datetime.fromisoformat(s.replace("Z", "+00:00"))
+        if v is None:
+            return 0.0
+        if isinstance(v, str):
+            v = v.replace(".", "").replace(",", ".")
+        return float(v)
     except Exception:
-        return None
+        return 0.0
 
-
-def importar_settlement_mp(caminho_arquivo, engine: Engine):
-    lote_id = datetime.now().isoformat(timespec="seconds")
-
-    df = pd.read_excel(caminho_arquivo)
-    # normaliza colunas
-    df.columns = [str(c).strip() for c in df.columns]
-
-    required = ["ID DA TRANSAÇÃO NO MERCADO PAGO", "TIPO DE TRANSAÇÃO", "VALOR LÍQUIDO DA TRANSAÇÃO"]
-    for col in required:
-        if col not in df.columns:
-            raise ValueError(f"Relatório MP fora do padrão esperado: coluna '{col}' não encontrada.")
-
-    importadas = 0
-    atualizadas = 0
-    ignoradas = 0
-
-    now_iso = datetime.now().isoformat(timespec="seconds")
-
-    with engine.begin() as conn:
-        for _, row in df.iterrows():
-            external_id = row.get("ID DA TRANSAÇÃO NO MERCADO PAGO")
-            try:
-                external_id = str(int(external_id)) if external_id == external_id else None
-            except Exception:
-                external_id = str(external_id).strip() if external_id == external_id else None
-
-            if not external_id:
-                ignoradas += 1
-                continue
-
-            tipo_trans = str(row.get("TIPO DE TRANSAÇÃO") or "").strip()
-
-            # valor líquido do MP (entrada real)
-            val = row.get("VALOR LÍQUIDO DA TRANSAÇÃO")
-            try:
-                valor = float(val) if val == val else 0.0
-            except Exception:
-                valor = 0.0
-
-            # mapeia tipo financeiro
-            tipo_fin = "MP_NET"
-            if "estorno" in tipo_trans.lower() or "chargeback" in tipo_trans.lower() or "devolu" in tipo_trans.lower():
-                tipo_fin = "REFUND"
-                valor = -abs(valor) if valor != 0 else 0.0
-            elif "retirada" in tipo_trans.lower() or "saque" in tipo_trans.lower():
-                tipo_fin = "WITHDRAWAL"
-                valor = -abs(valor) if valor != 0 else 0.0
-            elif "pagamento" in tipo_trans.lower():
-                tipo_fin = "MP_NET"
-
-            # data do caixa: preferir liberação
-            dt = _parse_iso_or_none(row.get("DATA DE LIBERAÇÃO DO DINHEIRO"))                  or _parse_iso_or_none(row.get("DATA DE APROVAÇÃO"))                  or _parse_iso_or_none(row.get("DATA DE ORIGEM"))                  or datetime.now()
-
-            data_lancamento = dt.isoformat()
-
-            canal = str(row.get("CANAL DE VENDA") or "").strip()
-            descricao = f"{tipo_trans} - {canal}".strip(" -")
-
-            existing = conn.execute(
-                select(finance_transactions.c.id).where(finance_transactions.c.external_id_mp == external_id)
-            ).first()
-
-            if existing:
-                conn.execute(
-                    update(finance_transactions)
-                    .where(finance_transactions.c.external_id_mp == external_id)
-                    .values(
-                        data_lancamento=data_lancamento,
-                        tipo=tipo_fin,
-                        valor=valor,
-                        origem="mercado_pago",
-                        descricao=descricao,
-                    )
-                )
-                atualizadas += 1
-            else:
-                conn.execute(
-                    insert(finance_transactions).values(
-                        data_lancamento=data_lancamento,
-                        tipo=tipo_fin,
-                        valor=valor,
-                        origem="mercado_pago",
-                        external_id_mp=external_id,
-                        descricao=descricao,
-                        criado_em=now_iso,
-                    )
-                )
-                importadas += 1
-
-    return {"lote_id": lote_id, "importadas": importadas, "atualizadas": atualizadas, "ignoradas": ignoradas}
-
+def _as_date_str(iso_or_any: str):
+    if not iso_or_any:
+        return datetime.now().strftime("%Y-%m-%d")
+    s = str(iso_or_any)
+    try:
+        dt = datetime.fromisoformat(s.replace("Z", "+00:00"))
+        return dt.date().isoformat()
+    except Exception:
+        if len(s) >= 10 and s[4] == "-" and s[7] == "-":
+            return s[:10]
+    return datetime.now().strftime("%Y-%m-%d")
 
 @app.route("/importar_mp", methods=["GET", "POST"])
-def importar_mp_view():
+@login_required
+def importar_mp():
+    msg = None
     if request.method == "POST":
-        if "arquivo" not in request.files:
-            flash("Nenhum arquivo enviado.", "danger")
-            return redirect(request.url)
-        file = request.files["arquivo"]
-        if file.filename == "":
-            flash("Selecione um arquivo.", "danger")
-            return redirect(request.url)
-
-        filename = secure_filename(file.filename)
-        caminho = os.path.join(app.config["UPLOAD_FOLDER"], filename)
-        file.save(caminho)
-
-        try:
-            resumo = importar_settlement_mp(caminho, engine)
-            flash(
-                f"Importação MP concluída. Lote {resumo['lote_id']} - "
-                f"{resumo['importadas']} novas, {resumo['atualizadas']} atualizadas, {resumo['ignoradas']} ignoradas.",
-                "success",
-            )
-        except Exception as e:
-            flash(f"Erro na importação MP: {e}", "danger")
-
-        return redirect(url_for("importar_mp_view"))
-
-    return render_template("importar_mp.html")
-
-
-def _date_only(iso_str: str):
-    try:
-        return iso_str[:10]
-    except Exception:
-        return None
-
-
-@app.route("/financeiro", methods=["GET", "POST"])
-def financeiro_view():
-    # Ações (saldo inicial, devolução, retirada)
-    if request.method == "POST":
-        acao = request.form.get("acao")
-        data = request.form.get("data") or date.today().isoformat()
-        descricao = (request.form.get("descricao") or "").strip() or None
-
-        try:
-            valor = float((request.form.get("valor") or "0").replace(",", "."))
-        except Exception:
-            valor = 0.0
-
-        tipo = None
-        if acao == "saldo_inicial":
-            tipo = "OPENING_BALANCE"
-        elif acao == "devolucao":
-            tipo = "REFUND"
-            valor = -abs(valor)
-        elif acao == "retirada":
-            tipo = "WITHDRAWAL"
-            valor = -abs(valor)
-        elif acao == "ajuste":
-            tipo = "ADJUSTMENT"
-
-        if tipo:
-            with engine.begin() as conn:
-                conn.execute(
-                    insert(finance_transactions).values(
-                        data_lancamento=f"{data}T00:00:00",
-                        tipo=tipo,
-                        valor=valor,
-                        origem="manual",
-                        descricao=descricao,
-                        criado_em=datetime.now().isoformat(timespec="seconds"),
-                    )
-                )
-            flash("Lançamento registrado com sucesso.", "success")
+        f = request.files.get("arquivo")
+        if not f or not f.filename:
+            msg = "Selecione um arquivo .xlsx do Mercado Pago."
         else:
-            flash("Ação inválida.", "danger")
+            try:
+                df = pd.read_excel(f)
+                batch_id = uuid4().hex
+                now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                inserted = 0
+                skipped = 0
 
-        return redirect(url_for("financeiro_view"))
+                with engine.begin() as conn:
+                    for _, row in df.iterrows():
+                        external_id = str(row.get("ID DA TRANSAÇÃO NO MERCADO PAGO", "")).strip()
+                        if not external_id or external_id.lower() == "nan":
+                            continue
 
-    # Período
-    data_inicio = request.args.get("data_inicio") or (date.today().replace(day=1)).isoformat()
-    data_fim = request.args.get("data_fim") or date.today().isoformat()
+                        exists = conn.execute(
+                            select(finance_transactions.c.id).where(finance_transactions.c.external_id_mp == external_id)
+                        ).fetchone()
+                        if exists:
+                            skipped += 1
+                            continue
 
-    filtro = []
-    if data_inicio:
-        filtro.append(finance_transactions.c.data_lancamento >= data_inicio)
-    if data_fim:
-        filtro.append(finance_transactions.c.data_lancamento <= data_fim + "T23:59:59")
+                        tipo_raw = str(row.get("TIPO DE TRANSAÇÃO", "")).strip().lower()
 
-    with engine.connect() as conn:
-        # saldo antes do período (para abrir o saldo do período)
-        saldo_anterior = conn.execute(
-            select(func.coalesce(func.sum(finance_transactions.c.valor), 0.0))
-            .where(finance_transactions.c.data_lancamento < data_inicio)
-        ).scalar() or 0.0
+                        vl = _to_float(row.get("VALOR LÍQUIDO DA TRANSAÇÃO", 0))
+                        if vl == 0:
+                            vl = _to_float(row.get("VALOR DA COMPRA", 0))
 
-        entradas_mp = conn.execute(
-            select(func.coalesce(func.sum(finance_transactions.c.valor), 0.0))
-            .where(*(filtro + [finance_transactions.c.tipo == "MP_NET"]))
-        ).scalar() or 0.0
+                        tipo = "MP_NET"
+                        if any(k in tipo_raw for k in ["retirada", "saque", "transfer"]):
+                            tipo = "WITHDRAWAL"
+                            valor = -abs(vl)
+                        elif any(k in tipo_raw for k in ["devol", "reemb", "estorno", "chargeback"]):
+                            tipo = "REFUND"
+                            valor = -abs(vl)
+                        elif "pagamento aprovado" in tipo_raw:
+                            tipo = "MP_NET"
+                            valor = abs(vl)
+                        else:
+                            tipo = "ADJUSTMENT"
+                            valor = vl
 
-        devolucoes = conn.execute(
-            select(func.coalesce(func.sum(finance_transactions.c.valor), 0.0))
-            .where(*(filtro + [finance_transactions.c.tipo == "REFUND"]))
-        ).scalar() or 0.0
+                        data_base = row.get("DATA DE LIBERAÇÃO DO DINHEIRO") or row.get("DATA DE APROVAÇÃO") or row.get("DATA DE ORIGEM")
+                        data_lanc = _as_date_str(data_base)
 
-        retiradas = conn.execute(
-            select(func.coalesce(func.sum(finance_transactions.c.valor), 0.0))
-            .where(*(filtro + [finance_transactions.c.tipo == "WITHDRAWAL"]))
-        ).scalar() or 0.0
+                        conn.execute(
+                            finance_transactions.insert().values(
+                                data_lancamento=data_lanc,
+                                tipo=tipo,
+                                valor=valor,
+                                origem="mercado_pago",
+                                external_id_mp=external_id,
+                                batch_id=batch_id,
+                                descricao=str(row.get("TIPO DE TRANSAÇÃO", ""))[:255],
+                                criado_em=now_str,
+                            )
+                        )
+                        inserted += 1
 
-        ajustes = conn.execute(
-            select(func.coalesce(func.sum(finance_transactions.c.valor), 0.0))
-            .where(*(filtro + [finance_transactions.c.tipo == "ADJUSTMENT"]))
-        ).scalar() or 0.0
+                msg = f"Importação concluída. Inseridos: {inserted}. Ignorados: {skipped}. Lote: {batch_id[:8]}..."
+            except Exception as e:
+                msg = f"Erro ao importar: {e}"
 
-        saldo_periodo = entradas_mp + devolucoes + retiradas + ajustes
-        saldo_atual = saldo_anterior + saldo_periodo
+    with engine.begin() as conn:
+        batches = conn.execute(text(
+            "SELECT batch_id, MIN(criado_em) AS criado_em, COUNT(*) AS qtd, "
+            "SUM(CASE WHEN tipo='MP_NET' THEN valor ELSE 0 END) AS entradas, "
+            "SUM(CASE WHEN tipo='REFUND' THEN valor ELSE 0 END) AS devolucoes, "
+            "SUM(CASE WHEN tipo='WITHDRAWAL' THEN valor ELSE 0 END) AS retiradas "
+            "FROM finance_transactions "
+            "WHERE origem='mercado_pago' AND batch_id IS NOT NULL AND batch_id <> '' "
+            "GROUP BY batch_id "
+            "ORDER BY MIN(criado_em) DESC "
+            "LIMIT 50"
+        )).mappings().all()
 
-        transacoes = conn.execute(
-            select(
-                finance_transactions.c.data_lancamento,
-                finance_transactions.c.tipo,
-                finance_transactions.c.valor,
-                finance_transactions.c.origem,
-                finance_transactions.c.external_id_mp,
-                finance_transactions.c.descricao,
-            )
-            .where(*filtro)
-            .order_by(finance_transactions.c.data_lancamento.desc())
-            .limit(500)
-        ).mappings().all()
+    return render_template("importar_mp.html", msg=msg, batches=batches)
+
+@app.route("/importar_mp/excluir/<batch_id>", methods=["POST"])
+@login_required
+def excluir_importacao_mp(batch_id):
+    with engine.begin() as conn:
+        conn.execute(text("DELETE FROM finance_transactions WHERE batch_id = :b"), {"b": batch_id})
+    return redirect(url_for("importar_mp"))
+
+@app.route("/financeiro")
+@login_required
+def financeiro_view():
+    start = request.args.get("start")
+    end = request.args.get("end")
+
+    where = ""
+    params = {}
+    if start:
+        where += " AND data_lancamento >= :start"
+        params["start"] = start
+    if end:
+        where += " AND data_lancamento <= :end"
+        params["end"] = end
+
+    with engine.begin() as conn:
+        opening = conn.execute(text("SELECT COALESCE(SUM(valor),0) FROM finance_transactions WHERE tipo='OPENING_BALANCE' " + where), params).scalar() or 0
+        entradas = conn.execute(text("SELECT COALESCE(SUM(valor),0) FROM finance_transactions WHERE tipo='MP_NET' " + where), params).scalar() or 0
+        devolucoes = conn.execute(text("SELECT COALESCE(SUM(valor),0) FROM finance_transactions WHERE tipo='REFUND' " + where), params).scalar() or 0
+        retiradas = conn.execute(text("SELECT COALESCE(SUM(valor),0) FROM finance_transactions WHERE tipo='WITHDRAWAL' " + where), params).scalar() or 0
+        ajustes = conn.execute(text("SELECT COALESCE(SUM(valor),0) FROM finance_transactions WHERE tipo='ADJUSTMENT' " + where), params).scalar() or 0
+
+        saldo_atual = opening + entradas + devolucoes + retiradas + ajustes
+
+        txs = conn.execute(text(
+            "SELECT data_lancamento, tipo, valor, origem, descricao, external_id_mp, batch_id "
+            "FROM finance_transactions WHERE 1=1 " + where +
+            " ORDER BY data_lancamento DESC, id DESC LIMIT 500"
+        ), params).mappings().all()
 
     return render_template(
         "financeiro.html",
-        data_inicio=data_inicio,
-        data_fim=data_fim,
-        saldo_anterior=saldo_anterior,
-        entradas_mp=entradas_mp,
-        devolucoes=devolucoes,
-        retiradas=retiradas,
+        opening=opening,
+        entradas=entradas,
+        devolucoes=abs(devolucoes),
+        retiradas=abs(retiradas),
         ajustes=ajustes,
         saldo_atual=saldo_atual,
-        transacoes=transacoes,
+        txs=txs,
+        start=start,
+        end=end,
     )
 
+@app.route("/financeiro/saldo_inicial", methods=["POST"])
+@login_required
+def financeiro_saldo_inicial():
+    data_lanc = request.form.get("data") or datetime.now().strftime("%Y-%m-%d")
+    valor = _to_float(request.form.get("valor"))
+    desc = request.form.get("descricao") or "Saldo inicial"
+    with engine.begin() as conn:
+        conn.execute(finance_transactions.insert().values(
+            data_lancamento=data_lanc,
+            tipo="OPENING_BALANCE",
+            valor=valor,
+            origem="manual",
+            descricao=desc[:255],
+            criado_em=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        ))
+    return redirect(url_for("financeiro_view"))
 
-@app.route("/conciliacao", methods=["GET"])
+@app.route("/financeiro/retirada", methods=["POST"])
+@login_required
+def financeiro_retirada():
+    data_lanc = request.form.get("data") or datetime.now().strftime("%Y-%m-%d")
+    valor = abs(_to_float(request.form.get("valor")))
+    desc = request.form.get("descricao") or "Retirada"
+    with engine.begin() as conn:
+        conn.execute(finance_transactions.insert().values(
+            data_lancamento=data_lanc,
+            tipo="WITHDRAWAL",
+            valor=-valor,
+            origem="manual",
+            descricao=desc[:255],
+            criado_em=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        ))
+    return redirect(url_for("financeiro_view"))
+
+@app.route("/financeiro/devolucao", methods=["POST"])
+@login_required
+def financeiro_devolucao():
+    data_lanc = request.form.get("data") or datetime.now().strftime("%Y-%m-%d")
+    valor = abs(_to_float(request.form.get("valor")))
+    desc = request.form.get("descricao") or "Devolução/Reembolso"
+    with engine.begin() as conn:
+        conn.execute(finance_transactions.insert().values(
+            data_lancamento=data_lanc,
+            tipo="REFUND",
+            valor=-valor,
+            origem="manual",
+            descricao=desc[:255],
+            criado_em=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        ))
+    return redirect(url_for("financeiro_view"))
+
+@app.route("/conciliacao")
+@login_required
 def conciliacao_view():
-    data_inicio = request.args.get("data_inicio") or (date.today().replace(day=1)).isoformat()
-    data_fim = request.args.get("data_fim") or date.today().isoformat()
+    start = request.args.get("start")
+    end = request.args.get("end")
+    where = ""
+    params = {}
+    if start:
+        where += " AND data_venda >= :start"
+        params["start"] = start
+    if end:
+        where += " AND data_venda <= :end"
+        params["end"] = end
 
-    # filtros
-    filtro_v = []
-    if data_inicio:
-        filtro_v.append(vendas.c.data_venda >= data_inicio)
-    if data_fim:
-        filtro_v.append(vendas.c.data_venda <= data_fim + "T23:59:59")
+    with engine.begin() as conn:
+        ml = conn.execute(text(
+            "SELECT substr(data_venda,1,10) AS dia, "
+            "SUM(COALESCE(receita_total,0) - COALESCE(comissao_ml,0)) AS liquido_ml "
+            "FROM vendas WHERE 1=1 " + where +
+            " GROUP BY substr(data_venda,1,10) "
+            "ORDER BY dia DESC LIMIT 200"
+        ), params).mappings().all()
 
-    filtro_f = []
-    if data_inicio:
-        filtro_f.append(finance_transactions.c.data_lancamento >= data_inicio)
-    if data_fim:
-        filtro_f.append(finance_transactions.c.data_lancamento <= data_fim + "T23:59:59")
+        mp = conn.execute(text(
+            "SELECT data_lancamento AS dia, "
+            "SUM(CASE WHEN tipo='MP_NET' THEN valor ELSE 0 END) AS liquido_mp "
+            "FROM finance_transactions "
+            "WHERE origem='mercado_pago' "
+            "GROUP BY data_lancamento"
+        )).mappings().all()
 
-    with engine.connect() as conn:
-        # ML: receita líquida gerencial = bruta - comissão
-        ml_liquida = conn.execute(
-            select(func.coalesce(func.sum(vendas.c.receita_total - vendas.c.comissao_ml), 0.0))
-            .where(*filtro_v)
-        ).scalar() or 0.0
-
-        # MP: receita líquida financeira = MP_NET
-        mp_liquida = conn.execute(
-            select(func.coalesce(func.sum(finance_transactions.c.valor), 0.0))
-            .where(*(filtro_f + [finance_transactions.c.tipo == "MP_NET"]))
-        ).scalar() or 0.0
-
-        diferenca_total = ml_liquida - mp_liquida
-
-        # Série diária (ML por data_venda; MP por data_lancamento)
-        v_rows = conn.execute(
-            select(vendas.c.data_venda, vendas.c.receita_total, vendas.c.comissao_ml).where(*filtro_v)
-        ).all()
-
-        f_rows = conn.execute(
-            select(finance_transactions.c.data_lancamento, finance_transactions.c.valor)
-            .where(*(filtro_f + [finance_transactions.c.tipo == "MP_NET"]))
-        ).all()
-
-    # agrupa em Python (mantém simples e compatível)
-    ml_por_dia = {}
-    for dv, bruta, com in v_rows:
-        if not dv:
-            continue
-        dia = str(dv)[:10]
-        try:
-            bruta = float(bruta or 0)
-            com = float(com or 0)
-        except Exception:
-            bruta, com = 0.0, 0.0
-        ml_por_dia[dia] = ml_por_dia.get(dia, 0.0) + (bruta - com)
-
-    mp_por_dia = {}
-    for dl, val in f_rows:
-        if not dl:
-            continue
-        dia = str(dl)[:10]
-        try:
-            val = float(val or 0)
-        except Exception:
-            val = 0.0
-        mp_por_dia[dia] = mp_por_dia.get(dia, 0.0) + val
-
-    dias = sorted(set(list(ml_por_dia.keys()) + list(mp_por_dia.keys())))
-    linhas = []
-    for d in dias:
-        ml = ml_por_dia.get(d, 0.0)
-        mp = mp_por_dia.get(d, 0.0)
-        linhas.append({"dia": d, "ml": ml, "mp": mp, "diff": ml - mp})
+    mp_map = {r["dia"]: float(r["liquido_mp"] or 0) for r in mp}
+    rows = []
+    total_ml = 0.0
+    total_mp = 0.0
+    for r in ml:
+        dia = r["dia"]
+        lm = float(r["liquido_ml"] or 0)
+        lp = float(mp_map.get(dia, 0))
+        rows.append({"dia": dia, "liquido_ml": lm, "liquido_mp": lp, "dif": lm - lp})
+        total_ml += lm
+        total_mp += lp
 
     return render_template(
         "conciliacao.html",
-        data_inicio=data_inicio,
-        data_fim=data_fim,
-        ml_liquida=ml_liquida,
-        mp_liquida=mp_liquida,
-        diferenca_total=diferenca_total,
-        linhas=linhas,
+        rows=rows,
+        total_ml=total_ml,
+        total_mp=total_mp,
+        total_dif=total_ml - total_mp,
+        start=start,
+        end=end,
     )
 
 

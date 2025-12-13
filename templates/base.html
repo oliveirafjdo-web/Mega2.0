@@ -370,22 +370,6 @@
         <span>Importar Vendas ML</span>
       </a>
 
-      <a href="{{ url_for('importar_mp_view') }}" class="nav-link {% if request.endpoint == 'importar_mp_view' %}active{% endif %}">
-        <i class="bi bi-bank"></i>
-        <span>Importar Mercado Pago</span>
-      </a>
-
-      <a href="{{ url_for('financeiro_view') }}" class="nav-link {% if request.endpoint == 'financeiro_view' %}active{% endif %}">
-        <i class="bi bi-cash-coin"></i>
-        <span>Financeiro</span>
-      </a>
-
-      <a href="{{ url_for('conciliacao_view') }}" class="nav-link {% if request.endpoint == 'conciliacao_view' %}active{% endif %}">
-        <i class="bi bi-arrow-left-right"></i>
-        <span>Conciliação ML × MP</span>
-      </a>
-
-
       <a href="{{ url_for('lista_vendas') }}" class="nav-link {% if request.endpoint in ['lista_vendas','editar_venda'] %}active{% endif %}">
         <i class="bi bi-receipt"></i>
         <span>Vendas</span>
