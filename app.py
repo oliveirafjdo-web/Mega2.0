@@ -5,7 +5,6 @@ from uuid import uuid4
 from sqlalchemy import text
 
 from flask import Flask, render_template, request, redirect, url_for, flash, send_file
-from flask_login import login_required
 from werkzeug.utils import secure_filename
 
 from sqlalchemy import (
@@ -1338,7 +1337,6 @@ def _as_date_str(iso_or_any: str):
     return datetime.now().strftime("%Y-%m-%d")
 
 @app.route("/importar_mp", methods=["GET", "POST"])
-@login_required
 def importar_mp():
     msg = None
     if request.method == "POST":
@@ -1423,14 +1421,12 @@ def importar_mp():
     return render_template("importar_mp.html", msg=msg, batches=batches)
 
 @app.route("/importar_mp/excluir/<batch_id>", methods=["POST"])
-@login_required
 def excluir_importacao_mp(batch_id):
     with engine.begin() as conn:
         conn.execute(text("DELETE FROM finance_transactions WHERE batch_id = :b"), {"b": batch_id})
     return redirect(url_for("importar_mp"))
 
 @app.route("/financeiro")
-@login_required
 def financeiro_view():
     start = request.args.get("start")
     end = request.args.get("end")
@@ -1473,7 +1469,6 @@ def financeiro_view():
     )
 
 @app.route("/financeiro/saldo_inicial", methods=["POST"])
-@login_required
 def financeiro_saldo_inicial():
     data_lanc = request.form.get("data") or datetime.now().strftime("%Y-%m-%d")
     valor = _to_float(request.form.get("valor"))
@@ -1490,7 +1485,6 @@ def financeiro_saldo_inicial():
     return redirect(url_for("financeiro_view"))
 
 @app.route("/financeiro/retirada", methods=["POST"])
-@login_required
 def financeiro_retirada():
     data_lanc = request.form.get("data") or datetime.now().strftime("%Y-%m-%d")
     valor = abs(_to_float(request.form.get("valor")))
@@ -1507,7 +1501,6 @@ def financeiro_retirada():
     return redirect(url_for("financeiro_view"))
 
 @app.route("/financeiro/devolucao", methods=["POST"])
-@login_required
 def financeiro_devolucao():
     data_lanc = request.form.get("data") or datetime.now().strftime("%Y-%m-%d")
     valor = abs(_to_float(request.form.get("valor")))
@@ -1524,7 +1517,6 @@ def financeiro_devolucao():
     return redirect(url_for("financeiro_view"))
 
 @app.route("/conciliacao")
-@login_required
 def conciliacao_view():
     start = request.args.get("start")
     end = request.args.get("end")
