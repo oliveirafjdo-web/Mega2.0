@@ -86,7 +86,8 @@ configuracoes = Table(
     metadata,
     Column("id", Integer, primary_key=True),
     Column("imposto_percent", Float, nullable=False, server_default="0"),
-)   
+    Column("despesas_percent", Float, nullable=False, server_default="0"),
+)
 
 finance_transactions = Table(
     "finance_transactions",
@@ -100,8 +101,7 @@ finance_transactions = Table(
     Column("descricao", String(255)),
     Column("criado_em", String(50)),
 )
-olumn("despesas_percent", Float, nullable=False, server_default="0"),
-)
+
 
 
 def init_db():
