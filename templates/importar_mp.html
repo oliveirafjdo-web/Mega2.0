@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+
+{% block title %}Importar Mercado Pago{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+      <h1 class="h3 mb-1">Importar relatório do Mercado Pago</h1>
+      <p class="text-muted mb-0">Use o arquivo XLSX de settlement para alimentar o caixa (valor líquido).</p>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-body">
+      <form method="POST" enctype="multipart/form-data" class="row g-3">
+        <div class="col-md-8">
+          <label class="form-label">Arquivo (.xlsx)</label>
+          <input type="file" name="arquivo" class="form-control" accept=".xlsx,.xls" required>
+          <small class="text-muted">Dica: o sistema usa o <b>VALOR LÍQUIDO DA TRANSAÇÃO</b> e o <b>ID DA TRANSAÇÃO NO MERCADO PAGO</b> para evitar duplicidade.</small>
+        </div>
+        <div class="col-md-4 d-flex align-items-end">
+          <button class="btn btn-primary w-100" type="submit">
+            <i class="bi bi-cloud-arrow-up me-1"></i> Importar
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

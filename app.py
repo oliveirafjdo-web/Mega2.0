@@ -7,7 +7,7 @@ from werkzeug.utils import secure_filename
 
 from sqlalchemy import (
     create_engine, MetaData, Table, Column, Integer, String, Float,
-    ForeignKey, func, select, insert, update, delete
+    ForeignKey, func, select, insert, update, delete, inspect, text
 )
 from sqlalchemy.engine import Engine
 import pandas as pd
@@ -61,6 +61,7 @@ vendas = Table(
     Column("quantidade", Integer, nullable=False),
     Column("preco_venda_unitario", Float, nullable=False),
     Column("receita_total", Float, nullable=False),
+    Column("comissao_ml", Float, nullable=False, server_default="0"),
     Column("custo_total", Float, nullable=False),
     Column("margem_contribuicao", Float, nullable=False),
     Column("origem", String(50)),
@@ -85,21 +86,46 @@ configuracoes = Table(
     metadata,
     Column("id", Integer, primary_key=True),
     Column("imposto_percent", Float, nullable=False, server_default="0"),
-    Column("despesas_percent", Float, nullable=False, server_default="0"),
+    C
+
+finance_transactions = Table(
+    "finance_transactions",
+    metadata,
+    Column("id", Integer, primary_key=True),
+    Column("data_lancamento", String(50), nullable=False),
+    Column("tipo", String(50), nullable=False),  # OPENING_BALANCE, MP_NET, REFUND, WITHDRAWAL, ADJUSTMENT
+    Column("valor", Float, nullable=False),
+    Column("origem", String(50), nullable=False, server_default="manual"),  # mercado_pago | manual
+    Column("external_id_mp", String(120), unique=True),  # ID DA TRANSAÇÃO NO MERCADO PAGO
+    Column("descricao", String(255)),
+    Column("criado_em", String(50)),
+)
+olumn("despesas_percent", Float, nullable=False, server_default="0"),
 )
 
 
 def init_db():
-    """Cria as tabelas se não existirem e garante 1 linha em configuracoes."""
+    """Cria as tabelas se não existirem e garante 1 linha em configuracoes.
+    Também aplica pequenos 'migrations' (ALTER TABLE) quando necessário.
+    """
     metadata.create_all(engine)
+
     with engine.begin() as conn:
-        row = conn.execute(
-            select(configuracoes.c.id).limit(1)
-        ).first()
+        # garante 1 linha em configuracoes
+        row = conn.execute(select(configuracoes.c.id).limit(1)).first()
         if not row:
-            conn.execute(
-                insert(configuracoes).values(id=1, imposto_percent=0.0, despesas_percent=0.0)
-            )
+            conn.execute(insert(configuracoes).values(id=1, imposto_percent=0.0, despesas_percent=0.0))
+
+        # ---- migrations leves (compatível com SQLite/Postgres) ----
+        insp = inspect(engine)
+
+        # vendas.comissao_ml
+        try:
+            cols = [c["name"] for c in insp.get_columns("vendas")]
+            if "comissao_ml" not in cols:
+                conn.execute(text('ALTER TABLE vendas ADD COLUMN comissao_ml FLOAT DEFAULT 0'))
+        except Exception:
+            pass
 
 
 # --------------------------------------------------------------------
@@ -221,6 +247,7 @@ def importar_vendas_ml(caminho_arquivo, engine: Engine):
                     quantidade=unidades,
                     preco_venda_unitario=preco_medio_venda,
                     receita_total=receita_total,
+                    comissao_ml=comissao_ml,
                     custo_total=custo_total,
                     margem_contribuicao=margem_contribuicao,
                     origem="Mercado Livre",
@@ -1289,6 +1316,353 @@ def relatorio_lucro_exportar():
 # Inicialização
 # --------------------------------------------------------------------
 init_db()
+
+
+
+# --------------------------------------------------------------------
+# Financeiro / Mercado Pago (caixa) + Conciliação ML x MP
+# --------------------------------------------------------------------
+
+def _parse_iso_or_none(value):
+    if value is None or (isinstance(value, float) and value != value):
+        return None
+    if isinstance(value, (datetime, date)):
+        # se vier como datetime/date do pandas
+        if isinstance(value, date) and not isinstance(value, datetime):
+            return datetime.combine(value, datetime.min.time())
+        return value
+    try:
+        s = str(value)
+        # tenta ISO completo com timezone
+        return datetime.fromisoformat(s.replace("Z", "+00:00"))
+    except Exception:
+        return None
+
+
+def importar_settlement_mp(caminho_arquivo, engine: Engine):
+    lote_id = datetime.now().isoformat(timespec="seconds")
+
+    df = pd.read_excel(caminho_arquivo)
+    # normaliza colunas
+    df.columns = [str(c).strip() for c in df.columns]
+
+    required = ["ID DA TRANSAÇÃO NO MERCADO PAGO", "TIPO DE TRANSAÇÃO", "VALOR LÍQUIDO DA TRANSAÇÃO"]
+    for col in required:
+        if col not in df.columns:
+            raise ValueError(f"Relatório MP fora do padrão esperado: coluna '{col}' não encontrada.")
+
+    importadas = 0
+    atualizadas = 0
+    ignoradas = 0
+
+    now_iso = datetime.now().isoformat(timespec="seconds")
+
+    with engine.begin() as conn:
+        for _, row in df.iterrows():
+            external_id = row.get("ID DA TRANSAÇÃO NO MERCADO PAGO")
+            try:
+                external_id = str(int(external_id)) if external_id == external_id else None
+            except Exception:
+                external_id = str(external_id).strip() if external_id == external_id else None
+
+            if not external_id:
+                ignoradas += 1
+                continue
+
+            tipo_trans = str(row.get("TIPO DE TRANSAÇÃO") or "").strip()
+
+            # valor líquido do MP (entrada real)
+            val = row.get("VALOR LÍQUIDO DA TRANSAÇÃO")
+            try:
+                valor = float(val) if val == val else 0.0
+            except Exception:
+                valor = 0.0
+
+            # mapeia tipo financeiro
+            tipo_fin = "MP_NET"
+            if "estorno" in tipo_trans.lower() or "chargeback" in tipo_trans.lower() or "devolu" in tipo_trans.lower():
+                tipo_fin = "REFUND"
+                valor = -abs(valor) if valor != 0 else 0.0
+            elif "retirada" in tipo_trans.lower() or "saque" in tipo_trans.lower():
+                tipo_fin = "WITHDRAWAL"
+                valor = -abs(valor) if valor != 0 else 0.0
+            elif "pagamento" in tipo_trans.lower():
+                tipo_fin = "MP_NET"
+
+            # data do caixa: preferir liberação
+            dt = _parse_iso_or_none(row.get("DATA DE LIBERAÇÃO DO DINHEIRO"))                  or _parse_iso_or_none(row.get("DATA DE APROVAÇÃO"))                  or _parse_iso_or_none(row.get("DATA DE ORIGEM"))                  or datetime.now()
+
+            data_lancamento = dt.isoformat()
+
+            canal = str(row.get("CANAL DE VENDA") or "").strip()
+            descricao = f"{tipo_trans} - {canal}".strip(" -")
+
+            existing = conn.execute(
+                select(finance_transactions.c.id).where(finance_transactions.c.external_id_mp == external_id)
+            ).first()
+
+            if existing:
+                conn.execute(
+                    update(finance_transactions)
+                    .where(finance_transactions.c.external_id_mp == external_id)
+                    .values(
+                        data_lancamento=data_lancamento,
+                        tipo=tipo_fin,
+                        valor=valor,
+                        origem="mercado_pago",
+                        descricao=descricao,
+                    )
+                )
+                atualizadas += 1
+            else:
+                conn.execute(
+                    insert(finance_transactions).values(
+                        data_lancamento=data_lancamento,
+                        tipo=tipo_fin,
+                        valor=valor,
+                        origem="mercado_pago",
+                        external_id_mp=external_id,
+                        descricao=descricao,
+                        criado_em=now_iso,
+                    )
+                )
+                importadas += 1
+
+    return {"lote_id": lote_id, "importadas": importadas, "atualizadas": atualizadas, "ignoradas": ignoradas}
+
+
+@app.route("/importar_mp", methods=["GET", "POST"])
+def importar_mp_view():
+    if request.method == "POST":
+        if "arquivo" not in request.files:
+            flash("Nenhum arquivo enviado.", "danger")
+            return redirect(request.url)
+        file = request.files["arquivo"]
+        if file.filename == "":
+            flash("Selecione um arquivo.", "danger")
+            return redirect(request.url)
+
+        filename = secure_filename(file.filename)
+        caminho = os.path.join(app.config["UPLOAD_FOLDER"], filename)
+        file.save(caminho)
+
+        try:
+            resumo = importar_settlement_mp(caminho, engine)
+            flash(
+                f"Importação MP concluída. Lote {resumo['lote_id']} - "
+                f"{resumo['importadas']} novas, {resumo['atualizadas']} atualizadas, {resumo['ignoradas']} ignoradas.",
+                "success",
+            )
+        except Exception as e:
+            flash(f"Erro na importação MP: {e}", "danger")
+
+        return redirect(url_for("importar_mp_view"))
+
+    return render_template("importar_mp.html")
+
+
+def _date_only(iso_str: str):
+    try:
+        return iso_str[:10]
+    except Exception:
+        return None
+
+
+@app.route("/financeiro", methods=["GET", "POST"])
+def financeiro_view():
+    # Ações (saldo inicial, devolução, retirada)
+    if request.method == "POST":
+        acao = request.form.get("acao")
+        data = request.form.get("data") or date.today().isoformat()
+        descricao = (request.form.get("descricao") or "").strip() or None
+
+        try:
+            valor = float((request.form.get("valor") or "0").replace(",", "."))
+        except Exception:
+            valor = 0.0
+
+        tipo = None
+        if acao == "saldo_inicial":
+            tipo = "OPENING_BALANCE"
+        elif acao == "devolucao":
+            tipo = "REFUND"
+            valor = -abs(valor)
+        elif acao == "retirada":
+            tipo = "WITHDRAWAL"
+            valor = -abs(valor)
+        elif acao == "ajuste":
+            tipo = "ADJUSTMENT"
+
+        if tipo:
+            with engine.begin() as conn:
+                conn.execute(
+                    insert(finance_transactions).values(
+                        data_lancamento=f"{data}T00:00:00",
+                        tipo=tipo,
+                        valor=valor,
+                        origem="manual",
+                        descricao=descricao,
+                        criado_em=datetime.now().isoformat(timespec="seconds"),
+                    )
+                )
+            flash("Lançamento registrado com sucesso.", "success")
+        else:
+            flash("Ação inválida.", "danger")
+
+        return redirect(url_for("financeiro_view"))
+
+    # Período
+    data_inicio = request.args.get("data_inicio") or (date.today().replace(day=1)).isoformat()
+    data_fim = request.args.get("data_fim") or date.today().isoformat()
+
+    filtro = []
+    if data_inicio:
+        filtro.append(finance_transactions.c.data_lancamento >= data_inicio)
+    if data_fim:
+        filtro.append(finance_transactions.c.data_lancamento <= data_fim + "T23:59:59")
+
+    with engine.connect() as conn:
+        # saldo antes do período (para abrir o saldo do período)
+        saldo_anterior = conn.execute(
+            select(func.coalesce(func.sum(finance_transactions.c.valor), 0.0))
+            .where(finance_transactions.c.data_lancamento < data_inicio)
+        ).scalar() or 0.0
+
+        entradas_mp = conn.execute(
+            select(func.coalesce(func.sum(finance_transactions.c.valor), 0.0))
+            .where(*(filtro + [finance_transactions.c.tipo == "MP_NET"]))
+        ).scalar() or 0.0
+
+        devolucoes = conn.execute(
+            select(func.coalesce(func.sum(finance_transactions.c.valor), 0.0))
+            .where(*(filtro + [finance_transactions.c.tipo == "REFUND"]))
+        ).scalar() or 0.0
+
+        retiradas = conn.execute(
+            select(func.coalesce(func.sum(finance_transactions.c.valor), 0.0))
+            .where(*(filtro + [finance_transactions.c.tipo == "WITHDRAWAL"]))
+        ).scalar() or 0.0
+
+        ajustes = conn.execute(
+            select(func.coalesce(func.sum(finance_transactions.c.valor), 0.0))
+            .where(*(filtro + [finance_transactions.c.tipo == "ADJUSTMENT"]))
+        ).scalar() or 0.0
+
+        saldo_periodo = entradas_mp + devolucoes + retiradas + ajustes
+        saldo_atual = saldo_anterior + saldo_periodo
+
+        transacoes = conn.execute(
+            select(
+                finance_transactions.c.data_lancamento,
+                finance_transactions.c.tipo,
+                finance_transactions.c.valor,
+                finance_transactions.c.origem,
+                finance_transactions.c.external_id_mp,
+                finance_transactions.c.descricao,
+            )
+            .where(*filtro)
+            .order_by(finance_transactions.c.data_lancamento.desc())
+            .limit(500)
+        ).mappings().all()
+
+    return render_template(
+        "financeiro.html",
+        data_inicio=data_inicio,
+        data_fim=data_fim,
+        saldo_anterior=saldo_anterior,
+        entradas_mp=entradas_mp,
+        devolucoes=devolucoes,
+        retiradas=retiradas,
+        ajustes=ajustes,
+        saldo_atual=saldo_atual,
+        transacoes=transacoes,
+    )
+
+
+@app.route("/conciliacao", methods=["GET"])
+def conciliacao_view():
+    data_inicio = request.args.get("data_inicio") or (date.today().replace(day=1)).isoformat()
+    data_fim = request.args.get("data_fim") or date.today().isoformat()
+
+    # filtros
+    filtro_v = []
+    if data_inicio:
+        filtro_v.append(vendas.c.data_venda >= data_inicio)
+    if data_fim:
+        filtro_v.append(vendas.c.data_venda <= data_fim + "T23:59:59")
+
+    filtro_f = []
+    if data_inicio:
+        filtro_f.append(finance_transactions.c.data_lancamento >= data_inicio)
+    if data_fim:
+        filtro_f.append(finance_transactions.c.data_lancamento <= data_fim + "T23:59:59")
+
+    with engine.connect() as conn:
+        # ML: receita líquida gerencial = bruta - comissão
+        ml_liquida = conn.execute(
+            select(func.coalesce(func.sum(vendas.c.receita_total - vendas.c.comissao_ml), 0.0))
+            .where(*filtro_v)
+        ).scalar() or 0.0
+
+        # MP: receita líquida financeira = MP_NET
+        mp_liquida = conn.execute(
+            select(func.coalesce(func.sum(finance_transactions.c.valor), 0.0))
+            .where(*(filtro_f + [finance_transactions.c.tipo == "MP_NET"]))
+        ).scalar() or 0.0
+
+        diferenca_total = ml_liquida - mp_liquida
+
+        # Série diária (ML por data_venda; MP por data_lancamento)
+        v_rows = conn.execute(
+            select(vendas.c.data_venda, vendas.c.receita_total, vendas.c.comissao_ml).where(*filtro_v)
+        ).all()
+
+        f_rows = conn.execute(
+            select(finance_transactions.c.data_lancamento, finance_transactions.c.valor)
+            .where(*(filtro_f + [finance_transactions.c.tipo == "MP_NET"]))
+        ).all()
+
+    # agrupa em Python (mantém simples e compatível)
+    ml_por_dia = {}
+    for dv, bruta, com in v_rows:
+        if not dv:
+            continue
+        dia = str(dv)[:10]
+        try:
+            bruta = float(bruta or 0)
+            com = float(com or 0)
+        except Exception:
+            bruta, com = 0.0, 0.0
+        ml_por_dia[dia] = ml_por_dia.get(dia, 0.0) + (bruta - com)
+
+    mp_por_dia = {}
+    for dl, val in f_rows:
+        if not dl:
+            continue
+        dia = str(dl)[:10]
+        try:
+            val = float(val or 0)
+        except Exception:
+            val = 0.0
+        mp_por_dia[dia] = mp_por_dia.get(dia, 0.0) + val
+
+    dias = sorted(set(list(ml_por_dia.keys()) + list(mp_por_dia.keys())))
+    linhas = []
+    for d in dias:
+        ml = ml_por_dia.get(d, 0.0)
+        mp = mp_por_dia.get(d, 0.0)
+        linhas.append({"dia": d, "ml": ml, "mp": mp, "diff": ml - mp})
+
+    return render_template(
+        "conciliacao.html",
+        data_inicio=data_inicio,
+        data_fim=data_fim,
+        ml_liquida=ml_liquida,
+        mp_liquida=mp_liquida,
+        diferenca_total=diferenca_total,
+        linhas=linhas,
+    )
+
 
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
