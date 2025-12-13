@@ -5,6 +5,7 @@ from uuid import uuid4
 from sqlalchemy import text
 
 from flask import Flask, render_template, request, redirect, url_for, flash, send_file
+from flask_login import login_required
 from werkzeug.utils import secure_filename
 
 from sqlalchemy import (
